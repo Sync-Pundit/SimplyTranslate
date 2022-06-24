@@ -38,14 +38,7 @@ def read_config():
     if config.getboolean("reverso", "Enabled", fallback=False):
         engines.append(ReversoTranslateEngine())
 
-    libretranslate_enabled = config.getboolean("libre", "Enabled", fallback=None)
-
-    if libretranslate_enabled is None:
-        print(
-            "LibreTranslate is disabled by default; please edit the config file to explicitly state whether it is enabled or not"
-        )
-
-    if libretranslate_enabled:
+    if config.getboolean("libre", "Enabled", fallback=False):
         engines.append(
             LibreTranslateEngine(
                 config["libre"]["Instance"],
@@ -358,14 +351,14 @@ async def index():
         if len(inp) > 0:
             params = {"engine": engine_name, "lang": from_l_code, "text": inp}
             tts_from = f"/api/tts/?{urlencode(params)}"
-        if translation is not None:
-            if len(translation) > 0:
-                params = {
-                    "engine": engine_name,
-                    "lang": to_l_code,
-                    "text": translation["translated-text"],
-                }
-                tts_to = f"/api/tts/?{urlencode(params)}"
+            
+        if translation is not None and translation["translated-text"]:
+            params = {
+                "engine": engine_name,
+                "lang": to_l_code,
+                "text": translation["translated-text"],
+            }
+            tts_to = f"/api/tts/?{urlencode(params)}"
 
     prefs = dict_to_prefs(request.cookies)
 
