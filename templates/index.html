@@ -275,7 +275,7 @@
 
 
                 <div class="item-wrapper">
-                    <textarea class="translation item" dir="auto" placeholder="Translation" readonly>
+                    <textarea id="output" class="translation item" dir="auto" placeholder="Translation" readonly>
                         {%- if translation is not none -%}{%- if translation['translated-text'] is not none -%}{{ translation['translated-text'] }}{%- endif -%}{%- endif -%}
                     </textarea>
                     <!-- TTS for the output text -->
@@ -377,6 +377,17 @@
                     document.getElementById("translation-form").submit();
                 }
             });
+
+            // Auto resize textarea to fit words inside it without need to scroll -- Thanks to: https://stackoverflow.com/a/25621277
+            var input = document.getElementById("input");
+            var output = document.getElementById("output");
+            input.setAttribute("style", "height:" + output.scrollHeight + "px;overflow-y:scroll;");
+            output.setAttribute("style", "height:" + output.scrollHeight + "px;overflow-y:scroll;");
+            input.addEventListener("input", function(e) {
+                this.style.height = 150 + "px";
+                this.style.height = this.scrollHeight + "px";
+            });
+            
             // @license-end
         </script>
     </body>
