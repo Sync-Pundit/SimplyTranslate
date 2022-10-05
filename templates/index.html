@@ -36,6 +36,11 @@
             justify-content: center;
         }
 
+        .wrap.languages {
+            flex-wrap: nowrap;
+            margin-bottom: 20px;
+        }
+
         #could_not_switch_languages_text {
             color: red;
         }
@@ -46,19 +51,29 @@
         }
 
         .item-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             width: 450px;
             margin: 5px 10px;
         }
 
 
+        .language,
+        .switch_languages {
+            display: flex;
+        }
+
         .language {
-            height: 50px;
             margin: 0px 10px;
         }
 
         .switch_languages {
-            height: 50px;
             margin: 0px 5px;
+        }
+
+        #switchbutton {
+            white-space: nowrap;
         }
 
         button {
@@ -70,6 +85,7 @@
         input,
         select,
         textarea {
+            width: 100%;
             font-size: 1rem;
             padding: 4px;
             border: 2px solid #888888;
@@ -224,7 +240,7 @@
             {% endif %}
 
             <!-- from and to language -->
-            <div class="wrap">
+            <div class="wrap languages">
                 <div class="language">
                     {% if use_text_fields %}
                         <input type="text" id="from_language" name="from_language" aria-label="Source language" value="{{ from_l }}" placeholder="from" />
@@ -263,7 +279,6 @@
                     <textarea autofocus class="item" id="input" name="input" dir="auto"  placeholder="Enter Text Here">{{ inp }}</textarea>
                     <!-- TTS for the input text -->
                     {%- if tts_enabled and tts_from is not none -%}
-                        <br>
                         <div class="center">
                             <audio controls>
                                 <source type="audio/mpeg" src="{{ tts_from }}">
@@ -280,7 +295,6 @@
                     </textarea>
                     <!-- TTS for the output text -->
                     {%- if tts_enabled and tts_to is not none -%}
-                        <br>
                         <div class="center">
                             <audio controls>
                                 <source type="audio/mpeg" src="{{ tts_to }}">
