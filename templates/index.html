@@ -1,414 +1,334 @@
 <!doctype html>
-
 {% macro lang_option(lang_name, current_lang) %}
     <option value="{{ lang_name }}" {{ 'selected' if current_lang == lang_name else '' }}>{{ lang_name }}</option>
 {% endmacro %}
-
 {% macro supported_source_lang_options(current_lang) %}
     {% for lang_name in supported_source_languages.keys() %}
         {{ lang_option(lang_name, current_lang) }}
     {% endfor %}
 {% endmacro %}
-
 {% macro supported_target_lang_options(current_lang) %}
     {% for lang_name in supported_target_languages.keys() %}
         {{ lang_option(lang_name, current_lang) }}
     {% endfor %}
 {% endmacro %}
-
-
 <html lang="en">
-    <head>
-        <title>SimplyTranslate</title>
-        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-        <meta name="description" content="Experience simple and private Google translations">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta charset="UTF-8">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SimplyTranslate — Modern</title>
+  <meta name="description" content="Simple, private translations with a clean, modern UI." />
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self'"> 
+  <style>
+    :root{
+      --bg:#0f1715;           /* deep green-black */
+      --panel:#14231f;        /* card surface */
+      --muted:#9db6ad;        /* muted text */
+      --text:#f4f7f5;
+      --brand:#2e7d6b;        /* logo green */
+      --accent:#4cc3a6;       /* teal/emerald */
+      --ring:rgba(76,195,166,.35);
+      --radius:16px; --shadow:0 12px 28px rgba(0,0,0,.25);
+      --border:1px solid rgba(46,125,107,.22); --soft:#0d1916; --maxw:1100px;
+    }
+    @media(prefers-color-scheme:light){:root{--bg:#f6fbf9; --panel:#fff; --text:#0e1513; --muted:#59746a; --shadow:0 10px 24px rgba(18,18,22,.08); --soft:#eef7f3}}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:500 15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:24px;position:relative}
+    .wrap:before{content:"";position:fixed;inset:-10% -10% auto -10%;height:55vh;pointer-events:none;z-index:-1;
+      background:radial-gradient(ellipse at 10% -10%, rgba(46,125,107,.18), transparent 55%),radial-gradient(ellipse at 110% -20%, rgba(76,195,166,.14), transparent 55%)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .title{font-size:clamp(1.4rem,2.4vw,2rem);font-weight:800;letter-spacing:.2px}
+    .muted{color:var(--muted)}
+    .pill{padding:.25rem .6rem;border-radius:999px;border:1px solid rgba(46,125,107,.28);background:linear-gradient(180deg, rgba(46,125,107,.12), rgba(76,195,166,.08))}
 
-        <!-- CSP Content Security Policy -->
-        <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+    /* Controls bar */
+    .bar{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:var(--border);padding:14px}
+    .bar .row{display:grid;gap:10px;grid-template-columns:1fr}
+    @media(min-width:860px){.bar .row{grid-template-columns:2fr 1fr 1fr}}
+    input,select,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid transparent;background:var(--soft);color:var(--text)}
+    input:focus,select:focus,button:focus{outline:2px solid var(--ring);outline-offset:2px}
+    .primary{background:linear-gradient(90deg,var(--brand),var(--accent));border:none;font-weight:700}
+    .engine{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .engine a{padding:6px 10px;border-radius:999px;border:1px solid rgba(46,125,107,.28);text-decoration:none;color:inherit}
+    .engine a.active{background:linear-gradient(90deg,var(--brand),var(--accent));color:white;border:none}
 
-        <!-- Referrer Policy -->
-        <meta name="referrer" content="no-referrer">
+    /* Language chooser */
+    .langs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+    .swap{flex:0 0 auto;width:42px;height:42px;border-radius:12px;border:1px solid rgba(46,125,107,.28);background:var(--soft);display:grid;place-items:center;cursor:pointer}
 
-        <style>
-        .center {
-            text-align: center;
-        }
+    /* Panels */
+    .panes{display:grid;gap:12px;margin-top:12px}
+    @media(min-width:900px){.panes{grid-template-columns:1fr 1fr}}
+    .card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:var(--border);padding:0}
+    .card header{padding:12px 14px;border-bottom:1px dashed rgba(46,125,107,.2);margin:0}
+    textarea{display:block;width:100%;min-height:180px;resize:vertical;border:none;background:transparent;color:inherit;padding:14px}
+    .footer{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-top:1px dashed rgba(46,125,107,.2)}
 
-        .wrap {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
+    /* Definitions / Translations semantic tints */
+    .def_type{color:#2fb48a;text-transform:capitalize}
+    .syn{color:#7b8f88}
+    .syn_type{color:#2fb48a}
+    .use_in_sentence{color:#5fd39f}
 
-        .wrap.languages {
-            flex-wrap: nowrap;
-            margin-bottom: 20px;
-        }
+    /* Status */
+    .status{display:flex;align-items:center;gap:10px}
+    .status .rate{white-space:nowrap}
+    /* Add to your <style> */
+/* Footer links styling */
+.footer-links {
+  text-align:center;
+  margin-top:24px;
+  font-size:14px;
+  color:var(--muted);
+}
+.footer-links a{
+  color:var(--brand);
+  text-decoration:underline;
+  margin:0 4px;
+}
+.footer-links a:hover{
+  text-decoration:underline;
+}
+.footer-links .sep {
+  color:rgba(46,125,107,.55);
+}
+/* Share row */
+.share-controls{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  gap:10px;
+  margin-top:6px;
+}
+.share-input{
+  width:100%;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid transparent;
+  background:var(--soft);
+  color:var(--text);
+}
+.share-input:focus{ outline:2px solid var(--ring); outline-offset:2px; }
+.btn-copy{
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid transparent;
+  background:linear-gradient(90deg,var(--brand),var(--accent));
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn-copy:focus{ outline:2px solid var(--ring); outline-offset:2px; }
+.textarea:focus { outline:2px solid var(--ring); outline-offset:2px; }
 
-        #could_not_switch_languages_text {
-            color: red;
-        }
+/* Toasts */
+.toasts{ position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; gap:10px; z-index:9999; }
+.toast{
+  display:flex; align-items:flex-start; gap:10px;
+  max-width:420px; padding:10px 12px;
+  border-radius:12px; border:1px solid rgba(46,125,107,.28);
+  background:linear-gradient(180deg, rgba(46,125,107,.12), rgba(76,195,166,.08));
+  color:var(--text); box-shadow:var(--shadow);
+  transform:translateY(8px); opacity:0;
+  animation:toast-in .18s ease forwards;
+}
+.toast.success{ border-left:6px solid var(--accent); }
+.toast.info{    border-left:6px solid var(--brand); }
+.toast.warn{    border-left:6px solid #f59e0b; }
+.toast.error{   border-left:6px solid #ef4444; }
 
-        .item {
-            width: 100%;
-            height: 150px;
-        }
+@keyframes toast-in { to { transform:translateY(0); opacity:1; } }
+@keyframes toast-out { to { transform:translateY(8px); opacity:0; } }
 
-        .item-wrapper {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 450px;
-            margin: 5px 10px;
-        }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="title">SimplyTranslate</div>
+        <div class="muted">Private, fast, and clean. No tracking.</div>
+      </div>
+      <div class="status"><span class="pill rate">Engine: {{ engine }}</span></div>
+    </header>
 
+    <form action="/?engine={{ engine }}" method="POST" id="translation-form">
+      {% if engines|length > 1 %}
+      <div class="engine">
+        {% for _engine in engines %}
+          <a href="/?engine={{ _engine.name }}" class="{{ 'active' if engine == _engine.name else '' }}">{{ _engine.display_name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
 
-        .language,
-        .switch_languages {
-            display: flex;
-        }
+      <!-- Controls Bar -->
+      <section class="bar">
+        <div class="row">
+          {% if use_text_fields %}
+            <input type="text" id="from_language" name="from_language" aria-label="Source language" value="{{ from_l }}" placeholder="From language" />
+          {% else %}
+            <select name="from_language" id="from_language" aria-label="Source language">{{ supported_source_lang_options(from_l) }}</select>
+          {% endif %}
 
-        .language {
-            margin: 0px 10px;
-        }
+          <button id="switchbutton" class="swap" aria-label="Switch languages" formaction="/switchlanguages/?engine={{ engine }}" type="submit">⇄</button>
 
-        .switch_languages {
-            margin: 0px 5px;
-        }
+          {% if use_text_fields %}
+            <input type="text" id="to_language" name="to_language" aria-label="Target language" value="{{ to_l }}" placeholder="To language" />
+          {% else %}
+            <select name="to_language" id="to_language" aria-label="Target language">{{ supported_target_lang_options(to_l) }}</select>
+          {% endif %}
+        </div>
+      </section>
 
-        #switchbutton {
-            white-space: nowrap;
-        }
+      <!-- Panes -->
+      <section class="panes">
+        <article class="card">
+          <header><strong>Input</strong></header>
+          <textarea autofocus id="input" name="input" dir="auto" placeholder="Type or paste text…">{{ inp }}</textarea>
+          {% if tts_enabled and tts_from is not none %}
+          <div class="footer"><audio controls><source type="audio/mpeg" src="{{ tts_from }}"></audio><span class="muted">TTS (source)</span></div>
+          {% endif %}
+        </article>
 
-        button {
-            font-size: 1rem;
-            padding: 4px 10px;
-            border: 2px solid #888888;
-        }
+        <article class="card">
+          <header><strong>Translation</strong></header>
+          <textarea id="output" class="translation" dir="auto" placeholder="Translation" readonly>{% if translation is not none and translation['translated-text'] is not none %}{{ translation['translated-text'] }}{% endif %}</textarea>
+          {% if tts_enabled and tts_to is not none %}
+          <div class="footer"><audio controls><source type="audio/mpeg" src="{{ tts_to }}"></audio><span class="muted">TTS (target)</span></div>
+          {% endif %}
+        </article>
+      </section>
 
-        input,
-        select,
-        textarea {
-            width: 100%;
-            font-size: 1rem;
-            padding: 4px;
-            border: 2px solid #888888;
-        }
+      <div style="height:10px"></div>
+      <button class="primary" type="submit" style="width:100%">Translate with {{ engine }}!</button>
 
-        textarea {
-            resize: vertical;
-            height: 5rem;
-            font-family: sans-serif;
-
-            /* Stretch to form width */
-            width: 100%;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus,
-        button:focus {
-            border-color: #478061;
-            outline: 1px solid #478061;
-        }
-
-
-        body {
-            justify-content: center;
-            font-family: sans-serif;
-        }
-
-        #definitions_and_translations {
-            display: grid;
-            margin: auto;
-            width: 1100px;
-            gap: 10px;
-            grid-template-areas: "definitions translations";
-
-        }
-
-        .def_type {
-            color: #007979;
-            text-transform: capitalize;
-        }
-
-        .syn {
-            color: #804700;
-        }
-
-        .syn_type {
-            color: #007979;
-        }
-
-        .use_in_sentence {
-            color: #009902;
-        }
-
-        .definitions li:not(:last-child) {
-          margin-bottom: 1rem;
-        }
-
-        @media screen and (max-width: 1200px) {
-            #definitions_and_translations {
-                display: grid;
-                width: 90vw;
-                grid-template-areas:
-                    "definitions definitions"
-                    "translations translations";
-            }
-        }
-
-
-        div.definitions {
-            grid-area: definitions;
-        }
-
-        div.translations {
-            grid-area: translations;
-        }
-
-        @media screen and (prefers-color-scheme: dark) {
-            body {
-                background-color: #212529;
-                color: #f8f9fa;
-            }
-
-            #could_not_switch_languages_text {
-                color: #F13333;
-            }
-
-            a:visited {
-                color: #9759f6;
-                text-decoration: none;
-            }
-
-            a {
-                color: #599bf6;
-                text-decoration: none;
-            }
-
-            input,
-            select,
-            button,
-            textarea {
-                background-color: #131618;
-                border-color: #495057;
-                color: #f8f9fa;
-            }
-
-            .def_type {
-                color: cyan;
-                text-transform: capitalize;
-            }
-
-            .syn {
-                color: burlywood;
-            }
-
-            .syn_type {
-                color: cyan;
-            }
-
-            .use_in_sentence {
-                color: yellow;
-            }
-        }
-        </style>
-    </head>
-
-    <body>
-        <header class="center"><h1>SimplyTranslate</h1></header>
-
-        <form action="/?engine={{ engine }}" method="POST" id="translation-form">
-
-            <!-- engine buttons -->
-            {% if engines|length > 1 %}
-                <div class="center">
-                    Translation Engine
-                    {% for _engine in engines %}
-                        <a style="
-                                  {# Show the currently selected engine by underlining it #}
-                                  {% if engine == _engine.name %}
-                                    text-decoration: underline;
-                                  {% endif %}
-                            " href="/?engine={{ _engine.name }}">
-                            {{ _engine.display_name -}}
-                        </a>
-
-                        {% if not loop.last %}
-                            |
-                        {% endif %}
-                    {% endfor %}
-                </div>
-                <br>
-            {% endif %}
-
-            <!-- from and to language -->
-            <div class="wrap languages">
-                <div class="language">
-                    {% if use_text_fields %}
-                        <input type="text" id="from_language" name="from_language" aria-label="Source language" value="{{ from_l }}" placeholder="from" />
-                    {% else %}
-                        <select name="from_language" id="from_language" aria-label="Source language">
-                            {{ supported_source_lang_options(from_l) }}
-                        </select>
-                    {% endif %}
-                </div>
-
-                <div class="switch_languages">
-                    <button id="switchbutton" aria-label="Switch languages" formaction="/switchlanguages/?engine={{ engine }}" type="submit">&lt;-&gt;</button>
-                </div>
-
-                <div class="language">
-                    {% if use_text_fields %}
-                        <input type="text" id="to_language" aria-label="Target language" name="to_language" value="{{ to_l }}" placeholder="from" />
-                    {% else %}
-                        <select name="to_language" id="to_language" aria-label="Target language">
-                            {{ supported_target_lang_options(to_l) }}
-                        </select>
-                    {% endif %}
-                </div>
-            </div>
-
-            {% if could_not_switch_languages %}
-                <div class="center" id="could_not_switch_languages_text">
-                    Sorry, {{ engine }} doesn't support switching from autodetect.
-                </div>
-                <br>
-            {% endif %}
-
-            <!-- text boxes -->
-            <div class="wrap">
-                <div class="item-wrapper">
-                    <textarea autofocus class="item" id="input" name="input" dir="auto"  placeholder="Enter Text Here">{{ inp }}</textarea>
-                    <!-- TTS for the input text -->
-                    {%- if tts_enabled and tts_from is not none -%}
-                        <div class="center">
-                            <audio controls>
-                                <source type="audio/mpeg" src="{{ tts_from }}">
-                            </audio>
-                        </div>
-                    {%- endif -%}
-                </div>
+<div class="bar" style="margin-top:12px">
+  <div class="muted">Share this translation</div>
+  <div class="share-controls">
+    <input
+      id="share-url"
+      class="share-input"
+      readonly
+      value="/?engine={{ engine }}&text={{ inp|urlencode }}&sl={{ from_l_code }}&tl={{ to_l_code }}"
+      aria-label="Shareable link"
+    />
+    <button id="copy-share" type="button" class="btn-copy">Copy</button>
+  </div>
+</div>
 
 
-
-                <div class="item-wrapper">
-                    <textarea id="output" class="translation item" dir="auto" placeholder="Translation" readonly>
-                        {%- if translation is not none -%}{%- if translation['translated-text'] is not none -%}{{ translation['translated-text'] }}{%- endif -%}{%- endif -%}
-                    </textarea>
-                    <!-- TTS for the output text -->
-                    {%- if tts_enabled and tts_to is not none -%}
-                        <div class="center">
-                            <audio controls>
-                                <source type="audio/mpeg" src="{{ tts_to }}">
-                            </audio>
-                        </div>
-                    {%- endif -%}
-                </div>
-            </div>
-
-            <br>
-
-            <div class="center">
-                <!-- translate button -->
-                <button type="submit">Translate with {{ engine }}!</button>
-            </div>
-
-            <br>
-
-            <div class="center">
-                <!-- link to share translation -->
-                <a href="/?engine={{ engine }}&text={{ inp|urlencode }}&sl={{ from_l_code }}&tl={{ to_l_code }}">Copy this link to share this translation with others</a>
-            </div>
-
-            <br>
-
-            <div id="definitions_and_translations">
-                {% if translation is not none and "definitions" in translation %}
-                    <div class="definitions">
-                        {% for type, definitions in translation["definitions"].items() %}
-                            <span class="def_type">{{type}}</span>
-                            <ol>
-                                {% for definition_item in definitions %}
-                                    <li>
-                                        {{definition_item["definition"]}}
-                                        <br>
-                                        {% if "use-in-sentence" in definition_item %}
-                                            <span class="use_in_sentence">
-                                                "{{definition_item["use-in-sentence"]}}"
-                                            </span>
-                                            <br>
-                                        {% endif %}
-                                        {% if "synonyms" in definition_item %}
-                                            {% for synonym_type in definition_item["synonyms"] %}
-                                                <span class="syn">
-                                                    {% if synonym_type != "" %}
-                                                        <br>
-                                                        <span class="syn_type">{{synonym_type}}: </span>
-                                                    {% endif %}
-                                                    {{", ".join(definition_item["synonyms"][synonym_type])}}
-                                                </span>
-                                            {% endfor %}
-                                        {% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ol>
-                        {% endfor %}
-                    </div>
+      <!-- Definitions + Translations breakdown -->
+      <section class="defsgrid">
+        {% if translation is not none and 'definitions' in translation %}
+        <div class="card" style="padding:14px">
+          {% for type, defs in translation['definitions'].items() %}
+            <div class="def_type">{{ type }}</div>
+            <ol>
+              {% for d in defs %}
+              <li>
+                {{ d['definition'] }}<br/>
+                {% if 'use-in-sentence' in d %}<span class="use_in_sentence">“{{ d['use-in-sentence'] }}”</span><br/>{% endif %}
+                {% if 'synonyms' in d %}
+                  {% for syn_type in d['synonyms'] %}
+                    <span class="syn">{% if syn_type != '' %}<br/><span class="syn_type">{{ syn_type }}: </span>{% endif %}{{ ", ".join(d['synonyms'][syn_type]) }}</span>
+                  {% endfor %}
                 {% endif %}
+              </li>
+              {% endfor %}
+            </ol>
+          {% endfor %}
+        </div>
+        {% endif %}
 
-                {% if translation is not none and "translations" in translation %}
-                    <div class="translations">
-                        {% for def_type, translations in translation["translations"].items() %}
-                            <span class="def_type">{{def_type}}</span>
-                            <ul>
-                                {% for word, word_translations in translations.items() %}
-                                    <li>
-                                        <span class="syn_type">{{word}}:</span>
-                                        <span class="syn">{{", ".join(word_translations["words"])}}</span>
-                                        <span class="syn_type">{{word_translations["frequency"]}}</span>
-                                    </li>
-                                    <br>
-                                {% endfor %}
-                            </ul>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
+        {% if translation is not none and 'translations' in translation %}
+        <div class="card" style="padding:14px">
+          {% for def_type, translations in translation['translations'].items() %}
+            <div class="def_type">{{ def_type }}</div>
+            <ul>
+              {% for word, word_translations in translations.items() %}
+                <li>
+                  <span class="syn_type">{{ word }}:</span>
+                  <span class="syn">{{ ", ".join(word_translations['words']) }}</span>
+                  <span class="syn_type">{{ word_translations['frequency'] }}</span>
+                </li>
+                <br/>
+              {% endfor %}
+            </ul>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </section>
+    </form>
+    <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
 
-        </form>
+    <!-- Footer links -->
+<footer class="footer-links">
+  <a href="/prefs">Preferences</a>
+  <span class="sep">|</span>
+</footer>
 
-        <br>
-        <br>
-        <br>
+  </div>
 
-        <footer class="center">
-            <a href="/prefs">Preferences</a> | <a href="https://simple-web.org/projects/simplytranslate.html">Project Page</a> | <a href="https://simple-web.org">Simple Web Project</a>
-        </footer>
+  <script>
+    // Auto-resize input as you type
+    (function(){
+      const ta = document.getElementById('input');
+      const out = document.getElementById('output');
+      function fit(el, min=180){ el.style.height=min+'px'; el.style.height = Math.max(min, el.scrollHeight)+ 'px'; }
+      if (ta){ fit(ta); ta.addEventListener('input', ()=> fit(ta)); }
+      if (out){ fit(out); }
+      // Submit on Ctrl/Cmd+Enter
+      ta && ta.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)) document.getElementById('translation-form').submit(); });
+    })();
+  // Toast helper
+  function showToast(message, type = 'success', duration = 2500){
+    const host = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<div>${message}</div><button class="close" aria-label="Dismiss">×</button>`;
+    host.appendChild(el);
 
-        <script>
-            // @license magnet:?xt=urn:btih:0b31508aeb0634b347b8270c7bee4d411b5d4109&dn=agpl-3.0.txt AGPL-3.0
-            // this code submits the translation form when pressing Ctrl/Meta+Enter while focussed on the input text field
-            document.getElementById("input").addEventListener("keydown", function(event) {
-                if (event.keyCode === 13 && (event.metaKey || event.ctrlKey)) {
-                    document.getElementById("translation-form").submit();
-                }
-            });
+    const remove = () => {
+      el.style.animation = 'toast-out .18s ease forwards';
+      el.addEventListener('animationend', () => el.remove(), { once:true });
+    };
+    el.querySelector('.close').addEventListener('click', remove);
+    if (duration) setTimeout(remove, duration);
+  }
 
-            // Auto resize textarea to fit words inside it without need to scroll -- Thanks to: https://stackoverflow.com/a/25621277
-            var input = document.getElementById("input");
-            var output = document.getElementById("output");
-            input.setAttribute("style", "height:" + output.scrollHeight + "px;overflow-y:scroll;");
-            output.setAttribute("style", "height:" + output.scrollHeight + "px;overflow-y:scroll;");
-            input.addEventListener("input", function(e) {
-                this.style.height = 150 + "px";
-                this.style.height = this.scrollHeight + "px";
-            });
-            
-            // @license-end
-        </script>
-    </body>
+  // Copy share link
+  (function(){
+    const btn = document.getElementById('copy-share');
+    const input = document.getElementById('share-url');
+    if (!btn || !input) return;
+
+    btn.addEventListener('click', async () => {
+      // prefix with origin so it’s a full URL
+      const url = location.origin + input.value;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Copied — ready to share!', 'success');
+      } catch {
+        // Fallback: select + execCommand
+        input.focus(); input.select();
+        try {
+          const ok = document.execCommand('copy');
+          showToast(ok ? 'Copied — ready to share!' : 'Select & copy manually.', ok ? 'success' : 'warn');
+        } catch {
+          showToast('Select & copy the link manually.', 'warn');
+        }
+      }
+    });
+
+    // UX: click the field selects the whole link
+    input.addEventListener('click', () => { input.select(); });
+  })();
+document.getElementById('share-url')?.addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter') document.getElementById('copy-share')?.click();
+});
+
+  </script>
+</body>
 </html>

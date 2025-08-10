@@ -1,97 +1,136 @@
-<!DOCTYPE html>
-
+<!doctype html>
 <html lang="en">
-    <head>
-        <title>SimplyTranslate - Preferences</title>
-        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-        <meta name="description" content="Experience simple and private Google translations">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta charset="UTF-8">
 
-        <!-- CSP Content Security Policy -->
-        <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SimplyTranslate — Preferences</title>
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <meta name="description" content="Configure SimplyTranslate." />
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self'"> 
+  <style>
+    :root{
+      --bg:#0f1715;           /* deep green-black */
+      --panel:#14231f;        /* card surface */
+      --muted:#9db6ad;        /* muted text */
+      --text:#f4f7f5;
+      --brand:#2e7d6b;        /* logo green */
+      --accent:#4cc3a6;       /* teal/emerald */
+      --ring:rgba(76,195,166,.35);
+      --radius:16px;
+      --shadow:0 12px 28px rgba(0,0,0,.25);
+      --border:1px solid rgba(46,125,107,.22);
+      --soft:#0d1916;         /* input bg */
+      --maxw:1100px;
+    }
+    @media(prefers-color-scheme:light){
+      :root{
+        --bg:#f6fbf9;
+        --panel:#ffffff;
+        --text:#0e1513;
+        --muted:#59746a;
+        --shadow:0 10px 24px rgba(18,18,22,.08);
+        --soft:#eef7f3;
+      }
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:500 15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial}
+    .wrap{max-width:860px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .title{font-size:clamp(1.4rem,2.4vw,2rem);font-weight:800}
+    .muted{color:var(--muted)}
 
-        <!-- Referrer Policy -->
-        <meta name="referrer" content="no-referrer">
+    .card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:var(--border)}
+    .card header{padding:14px;border-bottom:1px dashed rgba(46,125,107,.2)}
+    .card .content{padding:16px}
 
+    form{display:grid;gap:14px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px dashed rgba(46,125,107,.12)}
+    .row:last-child{border-bottom:none}
 
-        <style>
-        .center {
-            text-align: center;
-        }
+.switch input{
+  appearance:none;
+  -webkit-appearance:none;
+  width:36px; /* slightly narrower */
+  height:18px; /* slightly shorter */
+  border-radius:999px;
+  background:var(--soft);
+  border:1px solid rgba(46,125,107,.25);
+  outline:none;
+  cursor:pointer;
+  transition:all .18s ease;
+  vertical-align:middle;
+  position:relative;
+}
+.switch input:focus{box-shadow:0 0 0 2px var(--ring)}
+.switch input:checked{background:linear-gradient(90deg,var(--brand),var(--accent));border-color:transparent}
+.switch input::after{
+  content:"";
+  position:absolute;
+  left:2px;
+  top:2px;
+  width:14px; /* smaller knob */
+  height:14px;
+  border-radius:50%;
+  background:#fff; /* always white knob */
+  transition:transform .18s ease;
+}
+.switch input:checked::after{
+  transform:translateX(16px);
+  background:#fff; /* ensure stays white */
+}
 
-        body {
-            max-width: 800px;
-            margin: 10px auto;
-            font-family: sans-serif;
-        }
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--soft);color:var(--text);cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--brand),var(--accent));font-weight:700}
+    .btn:focus{outline:2px solid var(--ring);outline-offset:2px}
 
-        button {
-            font-size: 1rem;
-            padding: 4px 10px;
-            border: 2px solid #888888;
-        }
+    a{color:inherit;text-decoration:none}
+    .pill{
+      padding:.25rem .6rem;
+      border-radius:999px;
+      border:1px solid rgba(46,125,107,.28);
+      background:linear-gradient(180deg, rgba(46,125,107,.12), rgba(76,195,166,.08));
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">SimplyTranslate</div>
+      <a href="/" class="pill">← Back to Translator</a>
+    </header>
 
-        button:focus {
-            border-color: #478061;
-            outline: 1px solid #478061;
-        }
-
-        @media screen and (prefers-color-scheme: dark) {
-            body {
-                background-color: #212529;
-                color: #f8f9fa;
-            }
-
-            a:visited {
-                color: #9759f6;
-            }
-
-            a {
-                color: #599bf6;
-            }
-
-            button {
-                background-color: #131618;
-                border-color: #495057;
-                color: #f8f9fa;
-            }
-        }
-        </style>
-    </head>
-
-    <body>
-        <header class="center"><h1>SimplyTranslate</h1></header>
-
-        <h2>Preferences</h2>
-        <hr>
-
+    <section class="card">
+      <header><strong>Preferences</strong></header>
+      <div class="content">
         <form action="/prefs" method="POST">
-            <label for="use_text_fields">Use text fields for language selection:</label>
-            <input
-                type="checkbox"
-                id="use_text_fields"
-                name="use_text_fields"
-                {% if use_text_fields %}checked{% endif %}>
+          <div class="row">
+            <div>
+              <div><strong>Use text fields for language selection</strong></div>
+              <div class="muted">Show free‑text inputs instead of dropdowns.</div>
+            </div>
+            <label class="switch" aria-label="Use text fields">
+              <input type="checkbox" id="use_text_fields" name="use_text_fields" {% if use_text_fields %}checked{% endif %}>
+            </label>
+          </div>
 
-            <br>
+          <div class="row">
+            <div>
+              <div><strong>Enable text‑to‑speech</strong></div>
+              <div class="muted">Generate audio for input/output when supported.</div>
+            </div>
+            <label class="switch" aria-label="Enable text to speech">
+              <input type="checkbox" id="tts_enabled" name="tts_enabled" {% if tts_enabled %}checked{% endif %}>
+            </label>
+          </div>
 
-            <label for="tts_enabled">Enable text-to-speech:</label>
-
-            <input
-              type="checkbox"
-              id="tts_enabled"
-              name="tts_enabled"
-              {% if tts_enabled %}checked{% endif %}>
-
-            <br>
-            <br>
-
-            <button type="submit">Save preferences</button>
+          <div class="actions">
+            <button type="submit" class="btn primary">Save preferences</button>
+          </div>
         </form>
-
-        <br>
-
-        <a href="/">Back To The Translator</a>
-    </body>
+      </div>
+    </section>
+  </div>
+</body>
 </html>
