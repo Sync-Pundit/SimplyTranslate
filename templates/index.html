@@ -298,37 +298,54 @@
     if (duration) setTimeout(remove, duration);
   }
 
-  // Copy share link
-  (function(){
+  async function copyText(text) {
+    // Modern path – only on secure context (HTTPS or localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Robust fallback using a temporary textarea (works on HTTP / LAN)
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length); // iOS
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  (function () {
     const btn = document.getElementById('copy-share');
     const input = document.getElementById('share-url');
     if (!btn || !input) return;
 
     btn.addEventListener('click', async () => {
-      // prefix with origin so it’s a full URL
-      const url = location.origin + input.value;
+      const url = new URL(input.value, location.origin).toString();
       try {
-        await navigator.clipboard.writeText(url);
-        showToast('Copied — ready to share!', 'success');
-      } catch {
-        // Fallback: select + execCommand
-        input.focus(); input.select();
-        try {
-          const ok = document.execCommand('copy');
-          showToast(ok ? 'Copied — ready to share!' : 'Select & copy manually.', ok ? 'success' : 'warn');
-        } catch {
-          showToast('Select & copy the link manually.', 'warn');
-        }
+        const ok = await copyText(url);
+        showToast(ok ? 'Copied — ready to share!' : 'Select & copy manually.', ok ? 'success' : 'warn');
+      } catch (err) {
+        showToast('Select & copy the link manually.', 'warn');
+        // console.debug('Copy failed:', err);
       }
     });
 
-    // UX: click the field selects the whole link
+    // UX: Enter on the field copies too
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('copy-share')?.click();
+      }
+    });
+
+    // Click selects
     input.addEventListener('click', () => { input.select(); });
   })();
-document.getElementById('share-url')?.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter') document.getElementById('copy-share')?.click();
-});
-
   </script>
 </body>
 </html>
