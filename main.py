@@ -7,9 +7,11 @@ from quart import (
     send_file,
     Response,
     abort,
+    jsonify,
 )
 from configparser import ConfigParser
 import argparse
+import asyncio
 import os
 from urllib.parse import urlencode
 from wsgiref.util import FileWrapper
@@ -113,6 +115,66 @@ def dict_to_prefs(d, **kwargs):
     }
 
 
+def engine_unavailable_response(engine, operation="translation"):
+    return (
+        jsonify(
+            {
+                "error": "engine_unavailable",
+                "engine": engine.name,
+                "engine_display_name": engine.display_name,
+                "operation": operation,
+                "message": f"{engine.display_name} is unavailable for {operation}.",
+            }
+        ),
+        503,
+    )
+
+
+async def inspect_engine_health(engine):
+    result = {
+        "name": engine.name,
+        "display_name": engine.display_name,
+        "metadata_available": False,
+    }
+
+    libre_url = getattr(engine, "url", None)
+    if libre_url is not None:
+        result["url"] = libre_url
+
+    try:
+        source_languages, target_languages = await asyncio.wait_for(
+            get_language_sets(engine), timeout=5
+        )
+        result.update(
+            {
+                "metadata_available": True,
+                "source_language_count": len(source_languages),
+                "target_language_count": len(target_languages),
+            }
+        )
+    except Exception as error:
+        result["error"] = f"{type(error).__name__}: {error}"
+
+    return result
+
+
+@app.route("/api/health/")
+async def api_health():
+    engine_results = [await inspect_engine_health(engine) for engine in engines]
+    healthy = any(engine["metadata_available"] for engine in engine_results)
+
+    return (
+        jsonify(
+            {
+                "ok": healthy,
+                "engine_count": len(engine_results),
+                "engines": engine_results,
+            }
+        ),
+        200 if healthy else 503,
+    )
+
+
 # NOTE: Legacy Endpoint. Use "/api"
 @app.route(
     "/translate/<string:from_language>/<string:to_language>/<string:input_text>/",
@@ -141,14 +203,25 @@ async def api_translate():
     if to_language == None:
         to_language = "en"
 
-    engine = get_engine(engine_name, engines, engines[0])
-
-    from_language = await to_lang_code(from_language, engine, type_="source")
-    to_language = await to_lang_code(to_language, engine, type_="target")
-
-    return await engine.translate(
-        text, from_language=from_language, to_language=to_language
+    engine, source_languages, target_languages, _ = await select_available_engine(
+        engine_name
     )
+
+    from_language = (
+        to_lang_code_from_languages(from_language, source_languages)
+        or from_language
+        or "auto"
+    )
+    to_language = (
+        to_lang_code_from_languages(to_language, target_languages) or to_language or "en"
+    )
+
+    try:
+        return await engine.translate(
+            text, from_language=from_language, to_language=to_language
+        )
+    except Exception:
+        return engine_unavailable_response(engine)
 
 
 @app.route("/prefs", methods=["POST", "GET"])
@@ -187,7 +260,11 @@ async def api_source_languages():
     engine_name = request.args.get("engine")
     engine = get_engine(engine_name, engines, engines[0])
 
-    langs = await engine.get_supported_source_languages()
+    try:
+        langs = await engine.get_supported_source_languages()
+    except Exception:
+        return engine_unavailable_response(engine, "source language metadata")
+
     return "".join(f"{lang}\n{langs[lang]}\n" for lang in langs)
 
 
@@ -196,7 +273,10 @@ async def api_target_languages():
     engine_name = request.args.get("engine")
     engine = get_engine(engine_name, engines, engines[0])
 
-    langs = await engine.get_supported_target_languages()
+    try:
+        langs = await engine.get_supported_target_languages()
+    except Exception:
+        return engine_unavailable_response(engine, "target language metadata")
 
     return "".join(f"{lang}\n{langs[lang]}\n" for lang in langs)
 
@@ -209,9 +289,12 @@ async def api_tts():
 
     engine = get_engine(engine_name, engines, engines[0])
 
-    language = await to_lang_code(
-        language, engine, type_="source"
-    ) or await to_lang_code(language, engine, type_="target")
+    try:
+        language = await to_lang_code(
+            language, engine, type_="source"
+        ) or await to_lang_code(language, engine, type_="target")
+    except Exception:
+        return engine_unavailable_response(engine, "text-to-speech")
 
     url = await engine.get_tts(text, language)
 
@@ -235,18 +318,23 @@ async def switchlanguages():
 
     engine_name = request.args.get("engine")
 
-    engine = get_engine(engine_name, engines, engines[0])
+    engine, source_languages, target_languages, _ = await select_available_engine(
+        engine_name
+    )
 
     text = form.get("input", "")
-    from_lang = await to_lang_code(
-        form.get("from_language", "Autodetect"), engine, type_="source"
-    )
-    to_lang = await to_lang_code(
-        form.get("to_language", "English"), engine, type_="target"
-    )
+    from_lang = to_lang_code_from_languages(
+        form.get("from_language", "Autodetect"), source_languages
+    ) or "auto"
+    to_lang = to_lang_code_from_languages(
+        form.get("to_language", "English"), target_languages
+    ) or "en"
 
     if from_lang == "auto":
-        detected_lang = await engine.detect_language(text)
+        try:
+            detected_lang = await engine.detect_language(text)
+        except Exception:
+            detected_lang = None
 
         if detected_lang is not None:
             from_lang = detected_lang
@@ -337,7 +425,7 @@ async def select_available_engine(engine_name):
                     fallback,
                     source_languages,
                     target_languages,
-                    f"{requested.display_name} is unavailable right now; showing {fallback.display_name} instead.",
+                    None,
                 )
             except Exception:
                 continue
@@ -345,7 +433,7 @@ async def select_available_engine(engine_name):
             requested,
             FALLBACK_SOURCE_LANGUAGES,
             FALLBACK_TARGET_LANGUAGES,
-            f"{requested.display_name} is unavailable right now; showing the translator shell with fallback languages.",
+            None,
         )
 
 
@@ -358,6 +446,7 @@ async def index():
     )
 
     from_lang, to_lang, inp, translation = "", "", "", None
+    translation_failed = False
 
     # This is `True` when the language switch button is pressed, `from_lang` is
     # "auto", and the engine doesn't support language detection.
@@ -406,6 +495,7 @@ async def index():
                 from_language=from_l_code,
             )
         except Exception:
+            translation_failed = True
             engine_error = f"{engine.display_name} could not translate that request. Try another engine or check the service status."
 
     # TTS
@@ -413,7 +503,7 @@ async def index():
     tts_to = None
     # check if the engine even supports TTS
     try:
-        if await engine.get_tts("auto", "test") is not None:
+        if translation is not None and await engine.get_tts("auto", "test") is not None:
             if inp and from_l_code:
                 params = {"engine": engine.name, "lang": from_l_code, "text": inp}
                 tts_from = f"/api/tts/?{urlencode(params)}"
@@ -450,6 +540,7 @@ async def index():
             use_text_fields=prefs["use_text_fields"],
             tts_enabled=prefs["tts_enabled"],
             could_not_switch_languages=could_not_switch_languages,
+            translation_failed=translation_failed,
         )
     )
 

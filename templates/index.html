@@ -115,7 +115,7 @@
 
       <button class="primary-action" type="submit">Translate with {{ engine_display_name or engine }}</button>
 
-      {% if inp %}
+      {% if inp and not translation_failed %}
         <section class="share-card" aria-label="Share translation">
           <p class="share-title">Share this translation</p>
           <p class="share-help">Copy a link with the current text and language pair.</p>
@@ -129,6 +129,11 @@
             />
             <button id="copy-share" type="button" class="btn-copy">Copy</button>
           </div>
+        </section>
+      {% elif translation_failed %}
+        <section class="share-card disabled" aria-label="Share translation">
+          <p class="share-title">Share this translation</p>
+          <p class="share-help">Translation failed, so there is no completed result to share yet.</p>
         </section>
       {% else %}
         <section class="share-card disabled" aria-label="Share translation">
