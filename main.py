@@ -269,11 +269,42 @@ async def switchlanguages():
     return response
 
 
+async def get_language_sets(engine):
+    return (
+        await engine.get_supported_source_languages(),
+        await engine.get_supported_target_languages(),
+    )
+
+
+async def select_available_engine(engine_name):
+    requested = get_engine(engine_name, engines, engines[0])
+    try:
+        source_languages, target_languages = await get_language_sets(requested)
+        return requested, source_languages, target_languages, None
+    except Exception as error:
+        for fallback in engines:
+            if fallback is requested:
+                continue
+            try:
+                source_languages, target_languages = await get_language_sets(fallback)
+                return (
+                    fallback,
+                    source_languages,
+                    target_languages,
+                    f"{requested.display_name} is unavailable right now; showing {fallback.display_name} instead.",
+                )
+            except Exception:
+                continue
+        raise error
+
+
 @app.route("/", methods=["GET", "POST"])
 async def index():
     engine_name = request.args.get("engine")
 
-    engine = get_engine(engine_name, engines, engines[0])
+    engine, supported_source_languages, supported_target_languages, engine_error = (
+        await select_available_engine(engine_name)
+    )
 
     from_lang, to_lang, inp, translation = "", "", "", None
 
@@ -313,30 +344,36 @@ async def index():
     to_l_code = None
 
     if not (inp == "" or inp.isspace()):
-        from_l_code = await to_lang_code(from_lang, engine, type_="source")
-        to_l_code = await to_lang_code(to_lang, engine, type_="target")
-        translation = await engine.translate(
-            inp,
-            to_language=to_l_code,
-            from_language=from_l_code,
-        )
+        try:
+            from_l_code = await to_lang_code(from_lang, engine, type_="source")
+            to_l_code = await to_lang_code(to_lang, engine, type_="target")
+            translation = await engine.translate(
+                inp,
+                to_language=to_l_code,
+                from_language=from_l_code,
+            )
+        except Exception:
+            engine_error = f"{engine.display_name} could not translate that request. Try another engine or check the service status."
 
     # TTS
     tts_from = None
     tts_to = None
     # check if the engine even supports TTS
-    if await engine.get_tts("auto", "test") is not None:
-        if inp:
-            params = {"engine": engine_name, "lang": from_l_code, "text": inp}
-            tts_from = f"/api/tts/?{urlencode(params)}"
+    try:
+        if await engine.get_tts("auto", "test") is not None:
+            if inp and from_l_code:
+                params = {"engine": engine.name, "lang": from_l_code, "text": inp}
+                tts_from = f"/api/tts/?{urlencode(params)}"
 
-        if translation is not None and translation["translated-text"]:
-            params = {
-                "engine": engine_name,
-                "lang": to_l_code,
-                "text": translation["translated-text"],
-            }
-            tts_to = f"/api/tts/?{urlencode(params)}"
+            if translation is not None and translation["translated-text"] and to_l_code:
+                params = {
+                    "engine": engine.name,
+                    "lang": to_l_code,
+                    "text": translation["translated-text"],
+                }
+                tts_to = f"/api/tts/?{urlencode(params)}"
+    except Exception:
+        pass
 
     prefs = dict_to_prefs(request.cookies)
 
@@ -352,9 +389,11 @@ async def index():
             to_l=to_lang,
             to_l_code=to_l_code,
             engine=engine.name,
+            engine_display_name=engine.display_name,
+            engine_error=engine_error,
             engines=engines,
-            supported_source_languages=await engine.get_supported_source_languages(),
-            supported_target_languages=await engine.get_supported_target_languages(),
+            supported_source_languages=supported_source_languages,
+            supported_target_languages=supported_target_languages,
             use_text_fields=prefs["use_text_fields"],
             tts_enabled=prefs["tts_enabled"],
             could_not_switch_languages=could_not_switch_languages,
@@ -362,12 +401,20 @@ async def index():
     )
 
     if request.method == "POST":
-        response.set_cookie(
-            "from_lang", await to_lang_code(from_lang, engine, type_="source")
-        )
-        response.set_cookie(
-            "to_lang", await to_lang_code(to_lang, engine, type_="target")
-        )
+        if from_l_code is None:
+            try:
+                from_l_code = await to_lang_code(from_lang, engine, type_="source")
+            except Exception:
+                from_l_code = None
+        if to_l_code is None:
+            try:
+                to_l_code = await to_lang_code(to_lang, engine, type_="target")
+            except Exception:
+                to_l_code = None
+        if from_l_code:
+            response.set_cookie("from_lang", from_l_code)
+        if to_l_code:
+            response.set_cookie("to_lang", to_l_code)
 
     return response
 
@@ -388,6 +435,6 @@ if __name__ == "__main__":
     read_config()
 
     app.run(
-        port=config.getint("network", "port", fallback=5000),
+        port=config.getint("network", "port", fallback=5555),
         host=config.get("network", "host", fallback="0.0.0.0"),
     )
