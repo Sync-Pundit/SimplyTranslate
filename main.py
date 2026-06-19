@@ -61,6 +61,17 @@ config_paths = [
     "/etc/simplytranslate/web.conf",
 ]
 
+FALLBACK_TARGET_LANGUAGES = {
+    "English": "en",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Spanish": "es",
+    "Zulu": "zu",
+}
+FALLBACK_SOURCE_LANGUAGES = {"Autodetect": "auto", **FALLBACK_TARGET_LANGUAGES}
+
 # This ain't clean, but it works.
 if __name__ != "__main__":
     read_config()
@@ -68,6 +79,11 @@ if __name__ != "__main__":
 app = Quart(__name__)
 
 app.url_map.strict_slashes = False
+
+
+@app.route("/favicon.ico")
+async def favicon():
+    return await send_file("static/favicon.ico")
 
 
 def str_to_bool(s, **kwargs):
@@ -276,6 +292,36 @@ async def get_language_sets(engine):
     )
 
 
+def to_full_name_from_languages(lang_code, supported_languages, default):
+    if not lang_code:
+        return default
+
+    lang_code = lang_code.lower()
+    if lang_code == "auto":
+        return "Autodetect"
+
+    for name, code in supported_languages.items():
+        if code.lower() == lang_code:
+            return name
+
+    return default
+
+
+def to_lang_code_from_languages(lang, supported_languages):
+    if not lang:
+        return None
+
+    lang = lang.lower()
+    if lang == "autodetect" or lang == "auto":
+        return "auto"
+
+    for name, code in supported_languages.items():
+        if name.lower() == lang or code.lower() == lang:
+            return code
+
+    return None
+
+
 async def select_available_engine(engine_name):
     requested = get_engine(engine_name, engines, engines[0])
     try:
@@ -295,7 +341,12 @@ async def select_available_engine(engine_name):
                 )
             except Exception:
                 continue
-        raise error
+        return (
+            requested,
+            FALLBACK_SOURCE_LANGUAGES,
+            FALLBACK_TARGET_LANGUAGES,
+            f"{requested.display_name} is unavailable right now; showing the translator shell with fallback languages.",
+        )
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -316,16 +367,16 @@ async def index():
         # support google format
         inp = request.args.get("text", "")
 
-        from_lang = await to_full_name(
+        from_lang = to_full_name_from_languages(
             request.args.get("sl") or request.cookies.get("from_lang") or "auto",
-            engine,
-            "source",
+            supported_source_languages,
+            "Autodetect",
         )
 
-        to_lang = await to_full_name(
+        to_lang = to_full_name_from_languages(
             request.args.get("tl") or request.cookies.get("to_lang") or "en",
-            engine,
-            "target",
+            supported_target_languages,
+            "English",
         )
 
         could_not_switch_languages = str_to_bool(
@@ -345,8 +396,10 @@ async def index():
 
     if not (inp == "" or inp.isspace()):
         try:
-            from_l_code = await to_lang_code(from_lang, engine, type_="source")
-            to_l_code = await to_lang_code(to_lang, engine, type_="target")
+            from_l_code = to_lang_code_from_languages(
+                from_lang, supported_source_languages
+            )
+            to_l_code = to_lang_code_from_languages(to_lang, supported_target_languages)
             translation = await engine.translate(
                 inp,
                 to_language=to_l_code,
@@ -402,15 +455,11 @@ async def index():
 
     if request.method == "POST":
         if from_l_code is None:
-            try:
-                from_l_code = await to_lang_code(from_lang, engine, type_="source")
-            except Exception:
-                from_l_code = None
+            from_l_code = to_lang_code_from_languages(
+                from_lang, supported_source_languages
+            )
         if to_l_code is None:
-            try:
-                to_l_code = await to_lang_code(to_lang, engine, type_="target")
-            except Exception:
-                to_l_code = None
+            to_l_code = to_lang_code_from_languages(to_lang, supported_target_languages)
         if from_l_code:
             response.set_cookie("from_lang", from_l_code)
         if to_l_code:
@@ -435,6 +484,6 @@ if __name__ == "__main__":
     read_config()
 
     app.run(
-        port=config.getint("network", "port", fallback=5555),
+        port=config.getint("network", "port", fallback=5000),
         host=config.get("network", "host", fallback="0.0.0.0"),
     )
