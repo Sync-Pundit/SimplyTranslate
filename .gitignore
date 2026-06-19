@@ -1,1 +1,9 @@
 config.conf
+
+# Local Python/runtime artifacts
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local Codex/Playwright evidence
+output/
