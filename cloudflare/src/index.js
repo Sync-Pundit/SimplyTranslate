@@ -1,4 +1,5 @@
 import { page } from "./page.js";
+import { renderDocsPage } from "./docs.js";
 
 const MODEL = "@cf/meta/m2m100-1.2b";
 const LANGUAGE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -46,6 +47,18 @@ function json(value, status = 200) {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function html(markup) {
+  return new Response(markup, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'",
+      "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },
   });
@@ -244,15 +257,11 @@ export async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
 
   if (url.pathname === "/" && request.method === "GET") {
-    return new Response(page, {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return html(page);
+  }
+
+  if ((url.pathname === "/docs" || url.pathname === "/docs/") && request.method === "GET") {
+    return html(renderDocsPage(LANGUAGES));
   }
 
   if (url.pathname === "/api/health/" && request.method === "GET") {

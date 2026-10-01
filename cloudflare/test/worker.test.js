@@ -261,6 +261,24 @@ test("homepage is a same-origin browser flow with the new design", async () => {
   assert.match(html, /Sync_Pundit/);
   assert.match(html, /translate.css/);
   assert.match(html, /id="detected-language"/);
+  assert.match(html, /href="\/docs">Docs<\/a>/);
+});
+
+test("public docs render the current language list and the product limits", async () => {
+  for (const path of ["/docs", "/docs/"]) {
+    const response = await handleRequest(request(path));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    assert.match(response.headers.get("Content-Security-Policy"), /style-src 'self'/);
+    const html = await response.text();
+    assert.match(html, /<title>Docs \/ Translate \/ Sync_Pundit<\/title>/);
+    assert.match(html, /23 languages for text/);
+    assert.match(html, /<span>Marathi<\/span><code>mr<\/code>/);
+    assert.match(html, /Shared links include the original text/);
+    assert.match(html, /POST \/api\/translate\//);
+    assert.match(html, /href="\/docs" aria-current="page"/);
+    assert.doesNotMatch(html, /workers\.dev|translate\.syncpundit\.io/);
+  }
 });
 
 test("speech uses Cloudflare audio and rejects unsupported languages before inference", async () => {

@@ -41,6 +41,7 @@ If you enable branch Preview builds, use the Preview command above. `cloudflare/
 Open the Worker's **Deployments** tab and inspect the build history. A successful production build creates an active deployment. Verify these paths on the URL reported by Cloudflare:
 
 - `/` serves the Translate interface and its CSS and JavaScript.
+- `/docs` serves the guide and shows the current language list.
 - `/api/health/` returns HTTP 200 with `"ok": true` when the AI binding is available.
 - `/api/source_languages/` lists the supported source languages.
 - A short English to Spanish translation returns text through `/api/translate/`.

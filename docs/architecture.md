@@ -2,7 +2,7 @@
 
 ## Request path
 
-`cloudflare/src/index.js` handles the page and API routes. The page markup lives in `cloudflare/src/page.js`. Wrangler uploads the files in `static/` as Workers Static Assets, and the page loads its CSS and JavaScript from the same origin. The Worker does not store translations or user history.
+`cloudflare/src/index.js` handles the page, `/docs`, and API routes. The app markup lives in `cloudflare/src/page.js`; `cloudflare/src/docs.js` renders the public guide from the Worker's current language list. Wrangler uploads the files in `static/` as Workers Static Assets, and both pages load their CSS and JavaScript from the same origin. The Worker does not store translations or user history.
 
 The browser sends text to `/api/translate/`. A selected source language goes straight to translation. For `from=auto`, the Worker first asks Workers AI to identify one of its supported languages from the first 1,000 characters. It returns an error when detection is uncertain or unavailable. It never silently assumes English.
 
@@ -24,7 +24,7 @@ The production and branch Preview configurations both declare the `AI` binding. 
 
 ## Browser behavior
 
-The interface has light and dark themes. It starts with the system preference and stores a manual choice in the browser's local storage. The source and result panes use different surfaces in both themes.
+The interface and `/docs` have light and dark themes. They start with the system preference and share a manual choice in the browser's local storage. The source and result panes use different surfaces in both themes.
 
 The browser uses a POST request for translation. **Copy share link** creates a URL with the source text and language choices, then copies it to the clipboard. Opening that URL loads and translates the source text again. Anyone with the link can read the original text in its query string.
 

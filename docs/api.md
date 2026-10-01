@@ -19,6 +19,7 @@ JSON responses include `Content-Type: application/json; charset=utf-8` and `Cach
 | Method | Path | Response |
 | --- | --- | --- |
 | `GET` | `/` | Translate HTML page |
+| `GET` | `/docs`, `/docs/` | Public guide with the current language list |
 | `GET` | `/api/health/` | AI binding status and translation model |
 | `GET` | `/api/capabilities/` | Detection support flag and speech language codes |
 | `GET` | `/api/source_languages/` | Plain-text language name and code pairs, including `auto` |

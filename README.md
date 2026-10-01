@@ -4,6 +4,8 @@ Translate is Sync_Pundit's Cloudflare-native translation app. This repository is
 
 Libre is disabled while its Cloudflare-native implementation is in progress.
 
+The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold the fuller repository references.
+
 ## Documentation
 
 | Read | For |
