@@ -1,0 +1,13 @@
+{
+  "name": "simplytranslate-cloudflare-preview",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "dev": "wrangler dev",
+    "check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.145.0"
+  }
+}
