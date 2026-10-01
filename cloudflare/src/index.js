@@ -92,7 +92,7 @@ function html(markup) {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
-      "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'",
+      "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src blob:; connect-src 'self'; base-uri 'none'; form-action 'self'",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },

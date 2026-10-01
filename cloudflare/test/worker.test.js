@@ -249,6 +249,7 @@ test("home and docs contain the provider and retain the same-origin app flow", a
   const home = await handleRequest(request("/"));
   assert.equal(home.status, 200);
   assert.match(home.headers.get("Content-Security-Policy"), /connect-src 'self'/);
+  assert.match(home.headers.get("Content-Security-Policy"), /media-src blob:/);
   assert.match(await home.text(), /GOOGLE TRANSLATE/);
   for (const path of ["/docs", "/docs/"]) {
     const docs = await handleRequest(request(path));
