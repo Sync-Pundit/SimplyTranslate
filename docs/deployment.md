@@ -17,22 +17,22 @@ npm run check
 
 ## Connect the GitHub repository
 
-After the migration branch is ready to become the production source and has been merged into `master`, connect the repository in Cloudflare:
+After the chosen production branch contains the Worker, connect the repository in Cloudflare:
 
-1. Open **Workers & Pages** and select the existing Worker named `translate`.
+1. Open **Workers & Pages** and select the Worker for this app.
 2. Open **Settings > Builds > Connect** and select GitHub.
-3. Select `Sync-Pundit/SimplyTranslate` and enter the settings below.
-4. Save the connection. Push a commit to `master` to start a build.
+3. Select this repository and enter the settings below.
+4. Save the connection. Push a commit to the selected production branch to start a build.
 
 | Setting | Value |
 | --- | --- |
-| Production branch | `master` |
+| Production branch | The branch selected for production |
 | Root directory | `/cloudflare/` |
 | Build command | `npm ci && npm test && npm run check` |
 | Deploy command | `npx wrangler deploy` |
 | Preview command, if preview builds are enabled | `npx wrangler preview` |
 
-The Worker name must match `"name": "translate"` in `cloudflare/wrangler.jsonc`. The root directory places the build commands beside the lockfile and Wrangler config. That config points to `../static`, so the Worker deploys the interface assets with its code. Cloudflare runs the build command before the deploy command. A failed test or dry run stops the build before deployment.
+The Worker name must match the `name` in `cloudflare/wrangler.jsonc`. The root directory places the build commands beside the lockfile and Wrangler config. That config points to `../static`, so the Worker deploys the interface assets with its code. Cloudflare runs the build command before the deploy command. A failed test or dry run stops the build before deployment.
 
 If you enable branch Preview builds, use the Preview command above. `cloudflare/wrangler.jsonc` declares the `AI` binding in `previews.ai`; [Previews do not inherit production bindings](https://developers.cloudflare.com/workers/previews/configuration/). Cloudflare provides a Preview URL for the branch.
 
@@ -48,4 +48,4 @@ Open the Worker's **Deployments** tab and inspect the build history. A successfu
 
 Run a speech request in a regular browser before public launch. The model returned valid WAV bytes during development, but audio playback in the in-app preview failed.
 
-Connecting Builds deploys the Worker on pushes to the selected production branch. It does not connect `translate.syncpundit.io`. Add the public domain only after the [launch gaps](architecture.md#launch-gaps) and API compatibility checks are resolved.
+Connecting Builds deploys the Worker on pushes to the selected production branch. Connect a public domain only after the [launch gaps](architecture.md#launch-gaps) and API compatibility checks are resolved.

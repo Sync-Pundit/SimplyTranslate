@@ -6,7 +6,7 @@ This page describes the routes in `cloudflare/src/index.js`. The [legacy Quart A
 
 The Worker accepts `cloudflare` or an omitted `engine` value. `engine=libre` returns HTTP 503 while Libre is disabled. Other engine values return HTTP 400.
 
-Language values accept a code or name without regard to case: `en` or `English`, for example. The supported codes are `en`, `fr`, `de`, `it`, `pt`, `es`, and `zu`. Automatic detection is valid only for the translation source language.
+Language values accept a code or name without regard to case: `en` or `English`, for example. The supported codes are `en`, `af`, `zu`, `fr`, `de`, `it`, `pt`, and `es`. Automatic detection is valid only for the translation source language.
 
 JSON responses include `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Errors use this shape:
 
@@ -47,7 +47,7 @@ For example, send `{"text":"Hello","from":"en","to":"fr"}` as JSON to `/api/tran
 
 When `from=auto`, detection examines the first 1,000 characters. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When source and target match, the Worker returns the source text without a translation model call.
 
-Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Other language pairs use M2M100. The API response shape stays the same.
+Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Afrikaans pairs use the same model. Other language pairs use M2M100. The API response shape stays the same.
 
 ## Speech
 
