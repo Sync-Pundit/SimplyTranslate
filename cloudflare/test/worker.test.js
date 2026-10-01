@@ -146,6 +146,35 @@ test("Zulu question keeps its person and form of address in the language-model r
   assert.equal((await response.json())["translated-text"], "But what are you doing there, brother?");
   assert.match(model.calls[0].values.messages[0].content, /wenzani = what are you doing/);
   assert.match(model.calls[0].values.messages[0].content, /bafo = brother \(informal address\)/);
+  assert.match(model.calls[0].values.messages[0].content, /kanti = but or so/);
+});
+
+test("Zulu slang and city-life terms reach the model with local context", async () => {
+  const examples = [
+    ["cava wenzani?", ["cava = look or see", "wenzani = what are you doing"]],
+    ["ushuni wenkabi", ["ushuni = tune or song", "wenkabi = of the bull"]],
+    ["wazini ngempilo yaseGoli wena?", ["wazini = what do you know", "ngempilo = about life", "yaseGoli = in Johannesburg"]],
+  ];
+
+  for (const [text, terms] of examples) {
+    const model = ai({ response: { translation: "Example" } });
+    const response = await handleRequest(request("/api/translate/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, from: "zu", to: "en" }),
+    }), model.env);
+    assert.equal(response.status, 200);
+    assert.equal(model.calls.length, 1);
+    const prompt = model.calls[0].values.messages[0].content;
+    for (const term of terms) assert.ok(prompt.includes(term), `${text}: missing ${term}`);
+    assert.match(prompt, /Preserve conjunctions and discourse markers/);
+    assert.match(prompt, /sentence-final emphatic wena/);
+    assert.equal(model.calls[0].values.messages[1].content, text);
+  }
+
+  const unrelated = ai({ response: { translation: "Hello" } });
+  await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), unrelated.env);
+  assert.doesNotMatch(unrelated.calls[0].values.messages[0].content, /ushuni|cava|yaseGoli/);
 });
 
 test("Afrikaans is listed and uses the language model in either direction", async () => {
