@@ -5,12 +5,9 @@
   "scripts": {
     "test": "node --test",
     "dev": "wrangler dev",
-    "check": "wrangler deploy --dry-run --containers-rollout=none"
+    "check": "wrangler deploy --dry-run"
   },
   "devDependencies": {
     "wrangler": "4.145.0"
-  },
-  "dependencies": {
-    "@cloudflare/containers": "^0.3.7"
   }
 }

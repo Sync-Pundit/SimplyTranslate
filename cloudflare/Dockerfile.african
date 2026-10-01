@@ -1,8 +1,0 @@
-FROM ghcr.io/ggml-org/llama.cpp:server@sha256:23fd59bc5e5b06ca68003a5772d441f0411fb723eeaff850b9111bcd2ac4fd33
-
-ADD --checksum=sha256:4af8ee1df3ec9008f763ebe95e6f21df3acd8d42c541feeb13314ca22e560afc \
-  https://huggingface.co/qvac/TranslatePsy-AfriSLM-0.8B-Q4-GGUF/resolve/14d6fd1e24c9f94a5e40c2e91c066241aede0dce/TranslatePsy-AfriSLM-0.8B-Q4_K_M-imat.gguf \
-  /model.gguf
-
-EXPOSE 8080
-CMD ["--model", "/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096", "--parallel", "1", "--threads", "2", "--n-gpu-layers", "0", "--no-webui"]

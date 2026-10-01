@@ -9,8 +9,8 @@ export const page = `<!doctype html>
   <title>Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.15">
-  <script src="/cloudflare.js?v=20261001.5" defer></script>
+  <link rel="stylesheet" href="/translate.css?v=20261002.1">
+  <script src="/cloudflare.js?v=20261002.1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#input">Skip to text</a>
@@ -44,7 +44,7 @@ export const page = `<!doctype html>
       </section>
 
       <form id="translation-form" class="workspace" novalidate>
-        <div class="workspace-topline"><span>01 / TEXT</span><span>CLOUDFLARE AI</span></div>
+        <div class="workspace-topline"><span>01 / TEXT</span><span>GOOGLE TRANSLATE</span></div>
         <div class="language-strip">
           <div class="language-control language-control-source">
             <label for="from_language">From</label>

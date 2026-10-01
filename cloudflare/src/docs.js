@@ -1,4 +1,4 @@
-export function renderDocsPage(languages, openAIEnabled = false) {
+export function renderDocsPage(languages, openAIAvailable = false) {
   const languageItems = Object.entries(languages)
     .map(([code, name]) => `<li><span>${name}</span><code>${code}</code></li>`)
     .join("");
@@ -14,7 +14,7 @@ export function renderDocsPage(languages, openAIEnabled = false) {
   <title>Docs / Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.15">
+  <link rel="stylesheet" href="/translate.css?v=20261002.1">
   <link rel="stylesheet" href="/docs.css?v=20261001.2">
 </head>
 <body>
@@ -54,7 +54,7 @@ export function renderDocsPage(languages, openAIEnabled = false) {
           <a href="#use">01 <span>Use Translate</span></a>
           <a href="#languages">02 <span>Languages</span></a>
           <a href="#privacy">03 <span>Your text</span></a>
-          <a href="#models">04 <span>Models and speech</span></a>
+          <a href="#models">04 <span>Providers and speech</span></a>
           <a href="#api">05 <span>API</span></a>
           <a href="#limits">06 <span>Limits</span></a>
         </nav>
@@ -75,33 +75,29 @@ export function renderDocsPage(languages, openAIEnabled = false) {
             <p class="section-index">02 / LANGUAGES</p>
             <h2>${Object.keys(languages).length} languages for text.</h2>
             <p>The source and target menus use the same list. Automatic detection is a source option, not a target language. These codes also work in the API.</p>
-            <p>Seventeen additional African languages use a specialist model alongside Afrikaans and Zulu. The list covers the model's named languages, not every language spoken in Africa. Northern Sotho, Swati, Venda, Tsonga, and South Ndebele remain unavailable. Choose the source yourself when detection confuses related languages.</p>
+            <p>Google Translate handles the listed codes through the Worker. Northern Sotho, Swati, Venda, Tsonga, and South Ndebele are now choices. This is language access, not a quality guarantee. Choose the source yourself when detection confuses short or related-language text.</p>
             <ul class="docs-languages">${languageItems}</ul>
-            <p class="docs-small">Malay (<code>ms</code>) does not include Indonesian (<code>id</code>). Chinese and Arabic use broad model codes; regional varieties and writing systems still need review.</p>
+            <p class="docs-small">Malay (<code>ms</code>) does not include Indonesian (<code>id</code>). South Ndebele (<code>nr</code>) is distinct from Northern Ndebele. Wolof returned text in our RPC checks but is not listed in Google Cloud Translation's language list. Regional varieties and writing systems still need review.</p>
           </section>
 
           <section id="privacy" class="docs-section">
             <p class="section-index">03 / YOUR TEXT</p>
             <h2>Know where the words go.</h2>
-            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>Translation provider</span><span>Result</span></div>
-            <p>${openAIEnabled ? "This deployment sends text to OpenAI's GPT-5 nano for detection and translation with response storage disabled." : "This deployment uses Cloudflare Workers AI for detection and most translation, and a Cloudflare Container for some African languages."} Speech uses Workers AI. Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
+            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>Google Translate</span><span>Result</span></div>
+            <p>The page sends text to Google Translate through this Worker for detection and translation. ${openAIAvailable ? "The API can use GPT-5 nano instead when you explicitly send engine=openai; that request goes to OpenAI with response storage disabled." : "An optional OpenAI route is available only when the Worker has an OpenAI key."} Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
             <div class="docs-callout"><strong>Shared links include the original text.</strong><p>The text sits in the URL query string. Anyone with the link can read it, and the URL may appear in browser history. Share only text you are comfortable putting in a link.</p></div>
-            <p>Speech requests also place the spoken text in a request URL. Select <strong>Listen</strong> only when you want to send that text for speech generation.</p>
+            <p>Select <strong>Listen</strong> only when you want to send that text to Google for speech. The spoken text appears in the request URL.</p>
           </section>
 
           <section id="models" class="docs-section">
-            <p class="section-index">04 / MODELS AND SPEECH</p>
-            <h2>Different routes for different words.</h2>
-            <div class="docs-table-wrap"><table><thead><tr><th>Task</th><th>Model</th><th>Coverage</th></tr></thead><tbody>
-              <tr><td>Text, when OpenAI is enabled</td><td>GPT-5 nano</td><td>Detection and translation for all listed languages</td></tr>
-              <tr><td>Source detection, otherwise</td><td>Llama 3.3</td><td>All listed languages</td></tr>
-              <tr><td>International translation</td><td>Qwen3</td><td>Pairs with one of the 15 new languages, except when translating into Zulu</td></tr>
-              <tr><td>Zulu and Afrikaans</td><td>Llama 3.3</td><td>Zulu to English; translation into Zulu; Afrikaans pairs without a new international language</td></tr>
-              <tr><td>Additional African languages</td><td>AfriSLM in a Cloudflare Container</td><td>English to and from 17 additional African languages; other pairs pass through English</td></tr>
-              <tr><td>Other translation</td><td>M2M100</td><td>Other pairs from the original language set</td></tr>
-              <tr><td>Speech</td><td>MeloTTS</td><td>English, French, and Spanish</td></tr>
+            <p class="section-index">04 / PROVIDERS AND SPEECH</p>
+            <h2>One default route, one optional route.</h2>
+            <div class="docs-table-wrap"><table><thead><tr><th>Task</th><th>Provider</th><th>Coverage</th></tr></thead><tbody>
+              <tr><td>Text and detection</td><td>Google Translate web RPC</td><td>Default for the page and API</td></tr>
+              <tr><td>Optional API text</td><td>GPT-5 nano</td><td><code>engine=openai</code> when an OpenAI key is configured</td></tr>
+              <tr><td>Speech</td><td>Google Translate speech</td><td>English, French, and Spanish</td></tr>
             </tbody></table></div>
-            <p class="docs-small">The Listen button is unavailable for languages without speech support. If the source and target match, Translate returns the input without a translation model call.</p>
+            <p class="docs-small">The Google web endpoints are unofficial and can change or restrict requests. The Listen button is unavailable for languages without speech support. If the source and target match, Translate returns the input without a provider call.</p>
           </section>
 
           <section id="api" class="docs-section">
@@ -122,23 +118,23 @@ Content-Type: application/json
   "translated-text": "Hola",
   "source": "en",
   "target": "es",
-  "engine": "cloudflare"
+  "engine": "google"
 }</code></pre>
             <div class="docs-table-wrap"><table><thead><tr><th>Route</th><th>Returns</th></tr></thead><tbody>
               <tr><td><code>GET /api/source_languages/</code></td><td>Names and codes, including <code>auto</code></td></tr>
               <tr><td><code>GET /api/target_languages/</code></td><td>Names and codes, without <code>auto</code></td></tr>
               <tr><td><code>GET /api/capabilities/</code></td><td>Detection and speech support</td></tr>
-              <tr><td><code>GET /api/health/</code></td><td>AI binding status and model names</td></tr>
+              <tr><td><code>GET /api/health/</code></td><td>Default provider and optional OpenAI availability</td></tr>
               <tr><td><code>GET /api/tts/?text=Hello&amp;lang=en</code></td><td>Audio for supported languages</td></tr>
             </tbody></table></div>
-            <p class="docs-small">Errors return a JSON object with <code>error</code> and <code>message</code>. An unknown source language returns 422. A model outage returns 503.</p>
+            <p class="docs-small">Omit <code>engine</code> or set it to <code>google</code> for the default. The old <code>cloudflare</code> value remains an alias. If Google interprets an explicitly selected language as a different supported language, the response also has <code>provider_source</code>. Errors include <code>error</code> and <code>message</code>; upstream failures return 503.</p>
           </section>
 
           <section id="limits" class="docs-section">
             <p class="section-index">06 / LIMITS</p>
             <h2>Where to use judgment.</h2>
-            <p>Short, ambiguous, and mixed-language text can confuse detection. A small glossary helps identify a few Zulu phrases, but it cannot cover every dialect. Translation quality varies by language and sentence. Some specialist-model checks were wrong for Igbo, Luganda, and Wolof. These language choices describe model coverage, not verified accuracy. Native-speaker review remains open, especially for Zulu and regional varieties. Pairs that pass through English can compound errors.</p>
-            <p>Without OpenAI, requests involving an additional African language are limited to 1,800 characters. The model container may need time to wake after inactivity.</p>
+            <p>Short, ambiguous, and mixed-language text can confuse detection. Google read a Swati example as Zulu even with Swati selected; the page shows a note when that happens. Translation quality varies by language and sentence. Our comparison found errors for Igbo, Luganda, Wolof, and colloquial Zulu. Native-speaker review remains open.</p>
+            <p>The Google web RPC and speech endpoint have no stability promise. If a provider fails, Translate reports the failure instead of substituting a different translation. The optional OpenAI path retains a small Zulu glossary, but the Google RPC has no glossary control.</p>
             <p>Libre is disabled while its Cloudflare-native version is being built. Speech currently covers English, French, and Spanish.</p>
             <a class="docs-return" href="/">Open Translate <span aria-hidden="true">↗</span></a>
           </section>

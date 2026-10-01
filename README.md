@@ -1,33 +1,30 @@
 # Translate
 
-Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Worker uses Workers AI for speech. Text detection and translation can use GPT-5 nano when `OPENAI_API_KEY` is configured; otherwise they use Workers AI and a Cloudflare Container for 17 additional African languages. The original Quart app remains in the repository during the migration.
+Translate is Sync_Pundit's translation app on a Cloudflare Worker. It is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Worker sends text to Google Translate's web RPC for translation and automatic source detection. **Listen** sends text to Google's speech endpoint for English, French, or Spanish. Neither path needs a Workers AI binding or a model Container.
 
-Libre is disabled while its Cloudflare-native implementation is in progress.
+GPT-5 nano remains an optional API provider when `OPENAI_API_KEY` is configured. Google stays the default even when that secret exists. Libre remains disabled while its Cloudflare version is in progress. The original Quart app stays in the repository as a legacy reference.
 
-The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold the fuller repository references.
-
-## Documentation
+The app has a public `/docs` guide. The files below cover implementation and deployment in more detail.
 
 | Read | For |
 | --- | --- |
-| [Architecture](docs/architecture.md) | Worker components, model choices, browser behavior, and launch gaps |
-| [Languages](docs/languages.md) | Supported choices, African and international additions, and coverage limits |
-| [Deploy through Cloudflare Builds](docs/deployment.md) | Local checks, GitHub connection settings in Cloudflare, and release checks |
-| [Cloudflare API](docs/api.md) | Current routes, parameters, responses, and errors |
-| [Legacy Quart app](docs/legacy-app.md) | Run and configure the original app during migration |
-| [Legacy API](api.md) | Routes and engines documented for the original Quart app |
+| [Architecture](docs/architecture.md) | Worker routes, provider boundaries, privacy, and launch gaps |
+| [Languages](docs/languages.md) | The 45 text choices and quality limits |
+| [Deployment](docs/deployment.md) | Cloudflare Builds setup and release checks |
+| [API](docs/api.md) | Routes, parameters, and responses |
+| [Legacy Quart app](docs/legacy-app.md) | Running the original Python app |
+| [Legacy API](api.md) | Routes documented for the original app |
 
 ## Repository layout
 
-- `cloudflare/src/` contains the Worker and the page it serves.
-- `cloudflare/Dockerfile.african` pins the African translation model used by the Container.
-- `static/` contains the Cloudflare interface assets and files retained for the Quart app.
-- `cloudflare/test/` contains Worker tests.
-- `cloudflare/wrangler.jsonc` names the Worker `translate` and configures its bindings.
-- `main.py`, `templates/`, `requirements.txt`, and `config.conf` belong to the legacy Quart app.
+- `cloudflare/src/` contains the Worker, Google RPC adapter, optional OpenAI adapter, and page markup.
+- `static/` contains the Worker interface and legacy app assets.
+- `cloudflare/test/` tests the Worker contract and provider response handling.
+- `cloudflare/wrangler.jsonc` configures the Worker and static assets.
+- `main.py`, `templates/`, `requirements.txt`, and `config.conf` belong to the original Quart app.
 
-## Upstream and license
+## Provider status
 
-The original SimplyTranslate Web project and its instance list are maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). The legacy app can relay third-party translation providers; the Worker uses the model routes described in [Architecture](docs/architecture.md). Provider names and trademarks belong to their owners. This fork is not affiliated with those providers.
+The Google web RPC and speech endpoint are private web interfaces. We tested them through a remote Worker, but Google can change or restrict them. An upstream failure is shown as an error; Translate does not silently replace the provider's answer. [Google Cloud Translation's documented REST API](https://docs.cloud.google.com/translate/docs/reference/rest/v2/translate) is a separate integration to assess for a supported production path.
 
-This project is licensed under the [GNU Affero General Public License, version 3 or later](LICENSE).
+The original SimplyTranslate Web project is maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). Provider names and trademarks belong to their owners. This fork is not affiliated with Google or OpenAI. The project is licensed under the [GNU Affero General Public License, version 3 or later](LICENSE).
