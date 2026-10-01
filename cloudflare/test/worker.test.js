@@ -298,9 +298,37 @@ test("an OpenAI secret routes translation and detection through GPT-5 nano", asy
   assert.equal(body.store, false);
   assert.equal(body.reasoning.effort, "minimal");
   assert.equal(body.text.format.type, "json_schema");
+  assert.doesNotMatch(body.instructions, /contextual clues/);
   const health = await (await handleRequest(request("/api/health/"), { OPENAI_API_KEY: "test-key" })).json();
   assert.equal(health.translation_provider, "openai");
   assert.equal(health.openai_model, "gpt-5-nano");
+});
+
+test("OpenAI gets relevant Zulu context for colloquial text", async (t) => {
+  let instructions;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    instructions = JSON.parse(options.body).instructions;
+    return Response.json({
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "zu", translation: "What are you doing?" }) }] }],
+    });
+  });
+  const response = await handleRequest(request("/api/translate/?text=cava%20wenzani%3F&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
+  assert.equal(response.status, 200);
+  assert.match(instructions, /cava = look or see/);
+  assert.match(instructions, /wenzani = what are you doing/);
+  assert.match(instructions, /The source language is Zulu \(zu\)/);
+  assert.doesNotMatch(instructions, /ushuni =/);
+});
+
+test("OpenAI cannot relabel a source inferred from known Zulu phrases", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({
+    status: "completed",
+    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "af", translation: "What are you doing?" }) }] }],
+  }));
+  const response = await handleRequest(request("/api/translate/?text=cava%20wenzani%3F&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).error, "invalid_detection_response");
 });
 
 test("OpenAI detection errors and provider failures cannot fall through to the container", async (t) => {

@@ -281,9 +281,15 @@ async function translate(request, env) {
   let result;
   try {
     if (openAIKey) {
-      const openAIResult = await translateWithOpenAI(input, source, target, LANGUAGES, openAIKey);
+      const zuluHints = ZULU_ENGLISH_GLOSSARY.filter(({ word }) => word.test(input));
+      const modelSource = automatic && zuluHints.length >= 2 ? "zu" : source;
+      const hints = target === "en" && (modelSource === "zu" || automatic) ? zuluHints : [];
+      const openAIResult = await translateWithOpenAI(input, modelSource, target, LANGUAGES, openAIKey, hints);
       if (automatic) {
         source = openAIResult?.source;
+        if (modelSource && source !== modelSource) {
+          return fail("invalid_detection_response", "Could not detect the language. Choose it manually and try again.", 502);
+        }
         if (source === "und") {
           return fail("language_not_detected", "Could not identify a supported language. Choose the source language manually.", 422);
         }
