@@ -30,7 +30,7 @@ In the Cloudflare dashboard, connect the repository under the Worker's **Setting
 | Deploy command | `npx wrangler deploy` |
 | Preview command, if enabled | `npx wrangler preview` |
 
-The Worker name comes from `cloudflare/wrangler.jsonc`. Its static assets directory points to `../static`, so code and interface files deploy together. A failed test or dry run stops the build before deployment. Cloudflare authorizes the GitHub connection in its dashboard.
+The Worker name comes from `cloudflare/wrangler.jsonc`. Its empty `previews` block enables Cloudflare's Preview command without adding provider bindings. The static assets directory points to `../static`, so code and interface files deploy together. A failed test or dry run stops the build before deployment. Cloudflare authorizes the GitHub connection in its dashboard.
 
 If using OpenAI, add `OPENAI_API_KEY` under the Worker's **Settings > Variables and Secrets** as a runtime secret. Do not put it in GitHub, `wrangler.jsonc`, or a public build variable. [Cloudflare's secret guide](https://developers.cloudflare.com/workers/configuration/secrets/) describes the dashboard setup.
 
