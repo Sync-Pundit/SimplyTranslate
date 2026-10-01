@@ -12,6 +12,11 @@
   const listenSource = document.getElementById("listen-source");
   const share = document.getElementById("share-url");
   const copyShare = document.getElementById("copy-share");
+  const copyLabels = new Map([
+    [copyResult, { element: copyResult, defaultText: "Copy text", copiedText: "✓ Copied" }],
+    [copyShare, { element: copyShare.querySelector("span"), defaultText: "Copy share link", copiedText: "✓ Link copied" }],
+  ]);
+  const copyTimers = new Map();
   const characterCount = document.getElementById("character-count");
   const resultNote = document.getElementById("result-note");
   const params = new URL(location.href).searchParams;
@@ -44,8 +49,24 @@
     listen.title = listen.disabled ? "Speech is available for English, French, and Spanish." : "Listen to translation";
   }
 
+  function resetCopyButton(button) {
+    clearTimeout(copyTimers.get(button));
+    copyTimers.delete(button);
+    copyLabels.get(button).element.textContent = copyLabels.get(button).defaultText;
+    button.classList.remove("is-copied");
+  }
+
+  function showCopied(button) {
+    resetCopyButton(button);
+    button.classList.add("is-copied");
+    copyLabels.get(button).element.textContent = copyLabels.get(button).copiedText;
+    copyTimers.set(button, setTimeout(() => resetCopyButton(button), 3000));
+  }
+
   function clearResult() {
     currentRequest?.abort();
+    resetCopyButton(copyResult);
+    resetCopyButton(copyShare);
     output.value = "";
     resultNote.textContent = "Ready when you are";
     copyResult.disabled = true;
@@ -150,12 +171,18 @@
     }
   }
 
-  async function copyText(value, success) {
+  async function copyText(value, button, success) {
+    const isCurrent = () => !button.disabled && (button === copyShare ? share.value : output.value) === value;
     try {
       await navigator.clipboard.writeText(value);
+      if (!isCurrent()) return;
+      showCopied(button);
       setStatus(success, "success");
     } catch {
-      setStatus("Could not copy. Select the text and copy it manually.", "error");
+      if (!isCurrent()) return;
+      setStatus(button === copyShare
+        ? "Could not copy the link. Check clipboard access and try again."
+        : "Could not copy. Select the translation and copy it manually.", "error");
     }
   }
 
@@ -199,8 +226,8 @@
     updateCount();
     setStatus("Languages swapped. Ready to translate.");
   });
-  copyResult.addEventListener("click", () => copyText(output.value, "Translation copied."));
-  copyShare.addEventListener("click", () => copyText(share.value, "Link copied."));
+  copyResult.addEventListener("click", () => copyText(output.value, copyResult, "Translation copied."));
+  copyShare.addEventListener("click", () => copyText(share.value, copyShare, "Link copied."));
   async function playSpeech(button, text, language) {
     if (!text || !speechLanguages.has(language)) return;
     button.disabled = true;
