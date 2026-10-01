@@ -6,7 +6,7 @@ This page describes the routes in `cloudflare/src/index.js`. The [legacy Quart A
 
 The Worker accepts `cloudflare` or an omitted `engine` value. `engine=libre` returns HTTP 503 while Libre is disabled. Other engine values return HTTP 400.
 
-Language values accept a code or name without regard to case: `en` or `English`, for example. The supported codes are `en`, `af`, `zu`, `fr`, `de`, `it`, `pt`, and `es`. Automatic detection is valid only for the translation source language.
+Language values accept a code or name without regard to case: `en` or `English`, for example. Use the language-list routes below to get the current supported codes; [Language coverage](languages.md) explains the international additions. Automatic detection is valid only for the translation source language.
 
 JSON responses include `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Errors use this shape:
 
@@ -19,6 +19,7 @@ JSON responses include `Content-Type: application/json; charset=utf-8` and `Cach
 | Method | Path | Response |
 | --- | --- | --- |
 | `GET` | `/` | Translate HTML page |
+| `GET` | `/docs`, `/docs/` | Public guide with the current language list |
 | `GET` | `/api/health/` | AI binding status and translation model |
 | `GET` | `/api/capabilities/` | Detection support flag and speech language codes |
 | `GET` | `/api/source_languages/` | Plain-text language name and code pairs, including `auto` |
@@ -47,7 +48,7 @@ For example, send `{"text":"Hello","from":"en","to":"fr"}` as JSON to `/api/tran
 
 When `from=auto`, detection examines the first 1,000 characters. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When source and target match, the Worker returns the source text without a translation model call.
 
-Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Afrikaans pairs use the same model. Other language pairs use M2M100. The API response shape stays the same.
+Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Translation into Zulu and Afrikaans pairs within the original language set use that model too. Pairs involving the 15 international additions use Cloudflare-hosted Qwen3, except when the target is Zulu. The remaining pairs use M2M100. The API response shape stays the same.
 
 ## Speech
 
@@ -66,7 +67,7 @@ English
 en
 ```
 
-`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model` and `zulu_english_model`. Without the binding it returns HTTP 503 with `ok: false`.
+`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model`, `zulu_english_model`, and `international_model`. Without the binding it returns HTTP 503 with `ok: false`.
 
 ## Error codes
 

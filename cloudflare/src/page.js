@@ -9,7 +9,7 @@ export const page = `<!doctype html>
   <title>Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.9">
+  <link rel="stylesheet" href="/translate.css?v=20261001.15">
   <script src="/cloudflare.js?v=20261001.5" defer></script>
 </head>
 <body>
@@ -24,6 +24,7 @@ export const page = `<!doctype html>
       </a>
       <div class="topbar-actions">
         <span class="topbar-end"><span class="status-dot" aria-hidden="true"></span> A language tool</span>
+        <a class="topbar-link" href="/docs">Docs</a>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
           <svg class="icon-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
           <svg class="icon-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 15.9A8.5 8.5 0 0 1 8.1 3.8 8.5 8.5 0 1 0 20.2 15.9Z"/></svg>

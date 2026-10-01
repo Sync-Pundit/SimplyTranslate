@@ -71,6 +71,8 @@ button:disabled { cursor: not-allowed; }
 .topbar-end { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); text-transform: uppercase; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent); }
 .topbar-actions { display: flex; align-items: center; gap: 19px; }
+.topbar-link { color: var(--ink); font: 600 12px/1 var(--mono); text-decoration: none; border-bottom: 1px solid var(--rule); padding: 8px 1px; }
+.topbar-link:hover, .topbar-link[aria-current="page"] { color: var(--accent); border-color: var(--accent); }
 .theme-toggle { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--rule); border-radius: 50%; background: var(--surface); color: var(--ink); transition: border-color .18s, background .18s; }
 .theme-toggle:hover { border-color: var(--accent); background: var(--swap-hover); }
 .theme-toggle .icon-moon { display: none; }
@@ -158,6 +160,8 @@ h1 { margin: 0; font-size: clamp(68px, 8.8vw, 136px); line-height: .88; letter-s
   .brand-divider { margin: 0 2px; }
   .brand-tool { font-size: 9px; }
   .topbar-end { display: none; }
+  .topbar-actions { gap: 12px; }
+  .topbar-link { font-size: 11px; }
   .intro { display: block; min-height: auto; padding: 42px 0 30px; }
   .intro-index { display: none; }
   .intro-art { position: absolute; top: 40px; right: 1px; display: flex; width: 94px; height: 27px; gap: 5px; }
@@ -182,6 +186,16 @@ h1 { margin: 0; font-size: clamp(68px, 8.8vw, 136px); line-height: .88; letter-s
   .share-button { width: 100%; }
   .translate-button { width: 100%; min-height: 50px; }
   .site-footer span:last-child { display: none; }
+}
+@media (max-width: 440px) {
+  .brand-divider, .brand-tool { display: none; }
+}
+@media (max-width: 360px) {
+  .topbar { gap: 8px; }
+  .topbar-actions { gap: 8px; }
+  .theme-toggle { width: 32px; height: 32px; }
+  .language-control { padding-inline: 8px; }
+  .language-control select { padding-right: 0; background-image: none; font-size: 12px; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }

@@ -40,7 +40,7 @@ test("form translation uses the Cloudflare model and keeps the legacy text field
 });
 
 test("GET and JSON POST accept explicit source languages, including Zulu", async () => {
-  const model = ai({ translated_text: "Sawubona" });
+  const model = ai({ response: { translation: "Sawubona" } });
   const get = await handleRequest(request("/api/translate/?text=Hello&from=en&to=zu"), model.env);
   assert.equal(get.status, 200);
   assert.equal((await get.json())["translated-text"], "Sawubona");
@@ -52,7 +52,8 @@ test("GET and JSON POST accept explicit source languages, including Zulu", async
   }), model.env);
   assert.equal(post.status, 200);
   assert.equal(model.calls.length, 2);
-  assert.equal(model.calls[1].values.target_lang, "zu");
+  assert.equal(model.calls[1].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  assert.match(model.calls[1].values.messages[0].content, /English into natural Zulu/);
 });
 
 test("automatic source detection chooses a supported language before translation", async () => {
@@ -63,6 +64,54 @@ test("automatic source detection chooses a supported language before translation
   assert.equal(model.calls.length, 2);
   assert.equal(model.calls[0].values.response_format.type, "json_schema");
   assert.equal(model.calls[1].values.source_lang, "fr");
+});
+
+test("international languages are listed and routed through the multilingual model", async () => {
+  const added = new Map([
+    ["ar", "Arabic"], ["bn", "Bengali"], ["zh", "Chinese"],
+    ["hi", "Hindi"], ["ja", "Japanese"], ["ko", "Korean"],
+    ["ms", "Malay"], ["mr", "Marathi"], ["fa", "Persian"],
+    ["ru", "Russian"], ["tl", "Tagalog"], ["th", "Thai"],
+    ["tr", "Turkish"], ["ur", "Urdu"], ["vi", "Vietnamese"],
+  ]);
+  const sourceList = await (await handleRequest(request("/api/source_languages/"))).text();
+  const targetList = await (await handleRequest(request("/api/target_languages/"))).text();
+  const model = ai((name) => name.includes("qwen")
+    ? { response: { translation: "Hello" } }
+    : { translated_text: "Hello" });
+
+  for (const [code, name] of added) {
+    assert.match(sourceList, new RegExp(`\\n${name}\\n${code}\\n`));
+    assert.match(targetList, new RegExp(`\\n${name}\\n${code}\\n`));
+    const response = await handleRequest(request(`/api/translate/?text=Hello&from=en&to=${code}`), model.env);
+    assert.equal(response.status, 200, code);
+    const englishToTarget = model.calls.at(-1);
+    assert.equal(englishToTarget.model, "@cf/qwen/qwen3-30b-a3b-fp8");
+    assert.match(englishToTarget.values.messages[0].content, new RegExp(`English into natural ${name}`));
+
+    const reverse = await handleRequest(request(`/api/translate/?text=Sample&from=${code}&to=en`), model.env);
+    assert.equal(reverse.status, 200, code);
+    assert.equal(model.calls.at(-1).model, "@cf/qwen/qwen3-30b-a3b-fp8");
+  }
+  assert.equal(model.calls.length, added.size * 2);
+
+  const detected = ai((name) => name.includes("llama")
+    ? { response: { language: "ja" } }
+    : { response: { translation: "Hello" } });
+  const response = await handleRequest(request("/api/translate/?text=%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF&from=auto&to=en"), detected.env);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).source, "ja");
+  assert.equal(detected.calls[1].model, "@cf/qwen/qwen3-30b-a3b-fp8");
+  assert.match(detected.calls[1].values.messages[0].content, /Japanese into natural English/);
+});
+
+test("translations into Zulu avoid the multilingual route", async () => {
+  const model = ai({ response: { translation: "Sawubona" } });
+  for (const from of ["en", "ar"]) {
+    const response = await handleRequest(request(`/api/translate/?text=Hello&from=${from}&to=zu`), model.env);
+    assert.equal(response.status, 200);
+    assert.equal(model.calls.at(-1).model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  }
 });
 
 test("detected Zulu uses a glossary for moni without losing the term", async () => {
@@ -128,7 +177,7 @@ test("an empty Zulu translation is not reported as success", async () => {
 test("automatic detection refuses unsupported, malformed, and unavailable results", async () => {
   for (const [result, status, error] of [
     [{ response: { language: "und" } }, 422, "language_not_detected"],
-    [{ response: { language: "ja" } }, 502, "invalid_detection_response"],
+    [{ response: { language: "xx" } }, 502, "invalid_detection_response"],
     [new Error("private"), 503, "detection_unavailable"],
   ]) {
     const model = ai(result);
@@ -190,6 +239,7 @@ test("health and capabilities report configured features", async () => {
   const health = await good.json();
   assert.equal(health.ok, true);
   assert.equal(health.zulu_english_model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  assert.equal(health.international_model, "@cf/qwen/qwen3-30b-a3b-fp8");
   const languages = await handleRequest(request("/api/source_languages/"));
   assert.equal(languages.status, 200);
   const body = await languages.text();
@@ -211,6 +261,24 @@ test("homepage is a same-origin browser flow with the new design", async () => {
   assert.match(html, /Sync_Pundit/);
   assert.match(html, /translate.css/);
   assert.match(html, /id="detected-language"/);
+  assert.match(html, /href="\/docs">Docs<\/a>/);
+});
+
+test("public docs render the current language list and the product limits", async () => {
+  for (const path of ["/docs", "/docs/"]) {
+    const response = await handleRequest(request(path));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    assert.match(response.headers.get("Content-Security-Policy"), /style-src 'self'/);
+    const html = await response.text();
+    assert.match(html, /<title>Docs \/ Translate \/ Sync_Pundit<\/title>/);
+    assert.match(html, /23 languages for text/);
+    assert.match(html, /<span>Marathi<\/span><code>mr<\/code>/);
+    assert.match(html, /Shared links include the original text/);
+    assert.match(html, /POST \/api\/translate\//);
+    assert.match(html, /href="\/docs" aria-current="page"/);
+    assert.doesNotMatch(html, /workers\.dev|translate\.syncpundit\.io/);
+  }
 });
 
 test("speech uses Cloudflare audio and rejects unsupported languages before inference", async () => {
