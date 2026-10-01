@@ -137,7 +137,7 @@ Content-Type: application/json
           <section id="limits" class="docs-section">
             <p class="section-index">06 / LIMITS</p>
             <h2>Where to use judgment.</h2>
-            <p>Short, ambiguous, and mixed-language text can confuse detection. Translation quality varies by language and sentence. Some specialist-model checks were wrong for Igbo, Luganda, and Wolof. These language choices describe model coverage, not verified accuracy. Native-speaker review remains open, especially for Zulu and regional varieties. Pairs that pass through English can compound errors.</p>
+            <p>Short, ambiguous, and mixed-language text can confuse detection. A small glossary helps identify a few Zulu phrases, but it cannot cover every dialect. Translation quality varies by language and sentence. Some specialist-model checks were wrong for Igbo, Luganda, and Wolof. These language choices describe model coverage, not verified accuracy. Native-speaker review remains open, especially for Zulu and regional varieties. Pairs that pass through English can compound errors.</p>
             <p>Without OpenAI, requests involving an additional African language are limited to 1,800 characters. The model container may need time to wake after inactivity.</p>
             <p>Libre is disabled while its Cloudflare-native version is being built. Speech currently covers English, French, and Spanish.</p>
             <a class="docs-return" href="/">Open Translate <span aria-hidden="true">↗</span></a>
