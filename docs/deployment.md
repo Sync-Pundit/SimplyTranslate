@@ -13,7 +13,9 @@ npm test
 npm run check
 ```
 
-`npm run check` builds the deployment bundle with `wrangler deploy --dry-run`. It does not publish the Worker. For interface work, run `npm run dev`. Local Wrangler development does not run the Workers AI binding in this project. To test live inference, use `npx wrangler dev --remote`; remote requests can incur Workers AI charges.
+`npm run check` runs `wrangler deploy --dry-run`. Wrangler builds the Worker bundle and the model image locally, but does not publish them. Docker must be running for this check. For interface work, run `npm run dev`. Local Wrangler development does not run the Workers AI binding in this project. To test live inference, use `npx wrangler dev --remote`; remote requests can incur Workers AI and Container charges. A local Docker build can verify the image separately: `docker build -f Dockerfile.african -t translate-african .` from `cloudflare/`.
+
+The African model runs in [Cloudflare Containers](https://developers.cloudflare.com/containers/). The Cloudflare account needs a paid Workers plan with Containers available. The Dockerfile downloads a pinned model by checksum during the image build; the model file is not committed to Git.
 
 ## Connect the GitHub repository
 
@@ -34,7 +36,9 @@ After the chosen production branch contains the Worker, connect the repository i
 
 The Worker name must match the `name` in `cloudflare/wrangler.jsonc`. The root directory places the build commands beside the lockfile and Wrangler config. That config points to `../static`, so the Worker deploys the interface assets with its code. Cloudflare runs the build command before the deploy command. A failed test or dry run stops the build before deployment.
 
-If you enable branch Preview builds, use the Preview command above. `cloudflare/wrangler.jsonc` declares the `AI` binding in `previews.ai`; [Previews do not inherit production bindings](https://developers.cloudflare.com/workers/previews/configuration/). Cloudflare provides a Preview URL for the branch.
+If you enable branch Preview builds, use the Preview command above. `cloudflare/wrangler.jsonc` declares the AI, Durable Object, and Container configuration under `previews`; [Previews do not inherit production bindings](https://developers.cloudflare.com/workers/previews/configuration/). A Preview provisions its own container app and instances. Cloudflare provides a Preview URL for the branch.
+
+Cloudflare builds and publishes the container image during the production deploy, then rolls out container instances. [The Worker update and image rollout are not transactional](https://developers.cloudflare.com/containers/guides/deploy/): the Worker can briefly be live before the container is ready. Check a translation involving a new African language after the rollout, not just the Worker build result. The first request after an idle period can take longer while the container starts.
 
 ## Check a Cloudflare build
 
@@ -45,6 +49,7 @@ Open the Worker's **Deployments** tab and inspect the build history. A successfu
 - `/api/health/` returns HTTP 200 with `"ok": true` when the AI binding is available.
 - `/api/source_languages/` lists the supported source languages.
 - A short English to Spanish translation returns text through `/api/translate/`.
+- A short English to Xhosa translation returns text after the model container starts.
 - **Copy share link** opens the same source text and language choices in a new tab.
 
 Run a speech request in a regular browser before public launch. The model returned valid WAV bytes during development, but audio playback in the in-app preview failed.

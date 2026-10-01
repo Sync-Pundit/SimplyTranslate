@@ -2,6 +2,28 @@
 
 Translate accepts the language codes returned by `/api/source_languages/` and `/api/target_languages/`. The browser reads these lists from the Worker. Automatic detection can choose from the same source languages, and returns an error when it cannot identify one reliably.
 
+## African model coverage
+
+The [AfriSLM model](https://huggingface.co/qvac/TranslatePsy-AfriSLM-0.8B-Q4-GGUF) names 19 African languages. Afrikaans (`af`) and Zulu (`zu`) were already in Translate. This release adds the other 17:
+
+| Language | API code | Language | API code |
+| --- | --- | --- | --- |
+| Amharic | `am` | Hausa | `ha` |
+| Igbo | `ig` | Kinyarwanda | `rw` |
+| Lingala | `ln` | Luganda | `lg` |
+| Malagasy | `mg` | Nyanja | `ny` |
+| Oromo | `om` | Shona | `sn` |
+| Somali | `so` | Southern Sotho | `st` |
+| Swahili | `sw` | Tswana | `tn` |
+| Wolof | `wo` | Xhosa | `xh` |
+| Yoruba | `yo` |  |  |
+
+These additions use AfriSLM in a Cloudflare Container for English to African translation and back. A pair without English passes through English. Zulu and Afrikaans retain their existing routes. Automatic source detection still uses Workers AI. The specialist model's license is Apache 2.0; its weights are pinned by revision and checksum in `cloudflare/Dockerfile.african`.
+
+This is **model coverage, not a claim of accurate translation for every language or dialect**. Short live checks showed incorrect output for some Igbo, Luganda, and Wolof sentences; colloquial Zulu also remains difficult. Related languages can confuse automatic detection. Check important text with a fluent speaker. Requests involving the 17 additions are limited to 1,800 characters, and a sleeping model container can add latency.
+
+Northern Sotho (Sepedi), Swati, Venda, Tsonga, and South Ndebele are among the South African languages still missing. Many more African languages are outside this model. Add them only with a suitable model and meaningful quality checks.
+
 ## International additions
 
 These 15 additions follow the [OBDILCI 2025 V6 internet-user estimates](https://www.obdilci.org/proyectos/principal/), skipping languages Translate already offered. The order below follows that dataset, not a claim about translation quality. OBDILCI estimates connected first- and second-language speakers and reports a margin of uncertainty around 20%.
