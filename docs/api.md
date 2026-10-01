@@ -1,14 +1,12 @@
-# Cloudflare API reference
+# Translate Worker API
 
-This page describes the routes in `cloudflare/src/index.js`. The [legacy Quart API](../api.md) has different engines and routes. All paths below are relative to the `translate` Worker.
+All routes below are relative to the `translate` Worker. The [legacy Quart API](../api.md) has different routes and engines.
 
 ## Common rules
 
-The Worker accepts `cloudflare` or an omitted `engine` value. `engine=libre` returns HTTP 503 while Libre is disabled. Other engine values return HTTP 400.
+The default engine is `google`, including when `engine` is omitted. `engine=cloudflare` remains a compatibility alias and also uses Google. `engine=openai` is optional and requires `OPENAI_API_KEY`; it never becomes the default merely because the key exists. `engine=libre` returns HTTP 503 while Libre is disabled. Other names return HTTP 400.
 
-Language values accept a code or name without regard to case: `en` or `English`, for example. Use the language-list routes below to get the current supported codes; [Language coverage](languages.md) explains the international and African additions. Automatic detection is valid only for the translation source language.
-
-JSON responses include `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Errors use this shape:
+Language values accept a code or name without regard to case. Fetch current choices from the language-list routes. `auto` is valid only for the translation source. JSON responses have `Cache-Control: no-store` and errors use this shape:
 
 ```json
 {"error":"invalid_text","message":"Enter text to translate."}
@@ -18,49 +16,57 @@ JSON responses include `Content-Type: application/json; charset=utf-8` and `Cach
 
 | Method | Path | Response |
 | --- | --- | --- |
-| `GET` | `/` | Translate HTML page |
-| `GET` | `/docs`, `/docs/` | Public guide with the current language list |
-| `GET` | `/api/health/` | Translation provider, model names, and binding status |
-| `GET` | `/api/capabilities/` | Detection support flag and speech language codes |
+| `GET` | `/` | Translate page |
+| `GET` | `/docs`, `/docs/` | Public guide and language list |
+| `GET` | `/api/health/` | Default provider and optional OpenAI availability |
+| `GET` | `/api/capabilities/` | Detection support and speech language codes |
 | `GET` | `/api/source_languages/` | Plain-text language name and code pairs, including `auto` |
 | `GET` | `/api/target_languages/` | Plain-text language name and code pairs, excluding `auto` |
-| `GET`, `POST` | `/api/translate/` | Translated text and resolved language codes |
-| `GET` | `/api/tts/` | WAV or MP3 audio, based on the returned bytes |
+| `GET`, `POST` | `/api/translate/` | Translation and source language |
+| `GET` | `/api/tts/` | MP3 audio for English, French, or Spanish |
 
-`/api/get_languages/` and `/translate/...` are not Worker routes. Unknown paths return HTTP 404 with `error: "not_found"`.
+`/api/get_languages/` and `/translate/...` belong to the old app and are not Worker routes. Unknown paths return HTTP 404.
 
-## Translation
+## Translate
 
-`GET` reads query parameters. `POST` accepts `application/x-www-form-urlencoded`, `multipart/form-data`, or a JSON object. The browser uses a form-encoded `POST`.
+`GET` reads query parameters. `POST` accepts form data or a JSON object. The page uses a form-encoded POST.
 
 | Parameter | Required | Behavior |
 | --- | --- | --- |
 | `text` | Yes | Non-empty source text |
-| `from` | No | Source language; omitted, empty, or `auto` starts detection |
+| `from` | No | Source language; omitted, empty, or `auto` asks Google to detect it |
 | `to` | No | Target language; defaults to `en` |
-| `engine` | No | Omitted or `cloudflare` |
+| `engine` | No | `google` by default; `openai` is explicit and requires a secret |
 
-For example, send `{"text":"Hello","from":"en","to":"fr"}` as JSON to `/api/translate/`. A successful response has this shape:
+Example request:
 
 ```json
-{"translated-text":"Bonjour","source":"en","target":"fr","engine":"cloudflare"}
+{"text":"Hello","from":"en","to":"es"}
 ```
 
-When `from=auto`, detection examines the first 1,000 characters on the Workers AI route; the OpenAI route sends the full text for detection and translation. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When a selected source and target match, the Worker returns the source text without a translation model call.
+Example response:
 
-With `OPENAI_API_KEY` configured, GPT-5 nano handles detection and translation for all listed languages. Without the key, Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Translation into Zulu and Afrikaans pairs within the original language set use that model too. Pairs involving the 15 international additions use Cloudflare-hosted Qwen3, except when the target is Zulu. The remaining pairs use M2M100. The API response shape stays the same.
+```json
+{"translated-text":"Hola","source":"en","target":"es","engine":"google"}
+```
 
-Without the OpenAI key, pairs involving one of the 17 additional African languages use AfriSLM in a Cloudflare Container. Pairs without English pass through English. These requests accept at most 1,800 characters and may be slower when the container wakes. Model coverage does not guarantee accuracy; related languages can also confuse automatic detection.
+Google returns its inferred source in the same RPC response as the translation. When `from=auto`, Translate maps that code to a listed language or returns HTTP 422 and asks the user to choose manually. When a selected source differs from Google's inferred source, the Worker keeps the selection in `source` and adds `provider_source`:
+
+```json
+{"translated-text":"Hello","source":"ss","target":"en","engine":"google","provider_source":"zu"}
+```
+
+The page shows that difference beside the source menu. It does not imply the translation is correct. Short phrases can be misidentified. When an explicit source equals the target, the Worker returns the source text without a provider call. Google does not receive contextual glossary hints. The optional OpenAI route does retain hints for a few Zulu phrases.
 
 ## Speech
 
-`GET /api/tts/` requires `text` and `lang` query parameters. `lang` accepts English (`en`), French (`fr`), or Spanish (`es`). A successful response contains audio bytes with `Content-Type: audio/wav` or `audio/mpeg`. The Worker chooses the type from the bytes returned by the model.
+`GET /api/tts/` requires `text` and `lang`. The Worker accepts English (`en`), French (`fr`), and Spanish (`es`), fetches Google speech audio, and returns `audio/mpeg`. Long text is divided into provider-sized requests and joined in order. A failed or invalid chunk fails the whole request.
 
-The text is part of the request URL for speech. Avoid putting private text into a speech URL that you plan to share or retain.
+Speech text is in both the incoming request URL and the outbound Google URL. Avoid putting private text in a speech URL you plan to share or retain.
 
 ## Discovery and health
 
-`GET /api/source_languages/` and `GET /api/target_languages/` return plain text in alternating name and code lines. For example, the source list starts with:
+The language routes return alternating name and code lines. The source list begins:
 
 ```text
 Detect language
@@ -69,21 +75,21 @@ English
 en
 ```
 
-`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether a provider is working. `GET /api/health/` reports `translation_provider` (`openai` or `workers-ai`) and `openai_model` when the key is set. It also includes `model`, `zulu_english_model`, `international_model`, `african_model`, and `african_model_configured`. The last field confirms a binding, not container readiness. HTTP 200 means a provider is configured, not that an external model call has succeeded. Without either the AI binding or OpenAI key, the route returns HTTP 503 with `ok: false`.
+`/api/capabilities/` returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. `/api/health/` reports `translation_provider: "google-rpc"`, `speech_provider: "google-tts"`, and whether OpenAI is available. HTTP 200 means these routes are configured in the Worker; it does not mean a live Google request succeeded.
 
-## Error codes
+## Errors
 
 | HTTP status | `error` | Cause |
 | --- | --- | --- |
-| 400 | `invalid_request` | Translation request body cannot be read or has an unsupported format |
-| 400 | `invalid_text` | Translation or speech text is empty |
-| 400 | `unsupported_engine` | Engine is neither omitted nor `cloudflare` |
-| 413 | `text_too_long` | More than 1,800 characters with an additional African language on the Cloudflare route |
-| 404 | `not_found` | Path or method has no handler |
-| 422 | `unsupported_language` | Source, target, or speech language is unknown |
-| 422 | `language_not_detected` | Automatic detection did not identify a supported language |
-| 422 | `speech_language_unavailable` | Speech language is known but not available in MeloTTS here |
-| 502 | `invalid_detection_response` | Detection returned an unexpected language code |
-| 502 | `invalid_engine_response` | Translation or speech returned invalid or empty output |
-| 503 | `detection_unavailable` | Detection call failed or its response could not be read |
-| 503 | `engine_unavailable` | Libre is disabled, AI is not bound, or a model call failed |
+| 400 | `invalid_request` | Unreadable or unsupported translation request format |
+| 400 | `invalid_text` | Empty translation or speech text |
+| 400 | `unsupported_engine` | Unknown engine name |
+| 404 | `not_found` | No route or method handler |
+| 422 | `unsupported_language` | Unknown source, target, or speech language |
+| 422 | `language_not_detected` | Automatic detection returned no listed language |
+| 422 | `speech_language_unavailable` | Known language outside the current speech set |
+| 502 | `invalid_detection_response` | Optional OpenAI detection returned a conflicting or invalid source |
+| 502 | `invalid_engine_response` | Provider returned invalid or empty text or audio |
+| 503 | `engine_unavailable` | Libre or OpenAI unavailable, or a provider request failed |
+
+The Google RPC and speech endpoint are private web interfaces. Google can change their format or access rules. The Worker reports an error instead of substituting a different provider or silently changing a selected source.

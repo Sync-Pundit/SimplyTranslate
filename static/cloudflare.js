@@ -23,6 +23,7 @@
   const params = new URL(location.href).searchParams;
   let currentRequest;
   let detectedSource;
+  let providerSource;
   let audio;
   let speechLanguages = new Set();
 
@@ -41,7 +42,11 @@
     document.getElementById("from-label").textContent = source.value === "auto" ? (detectedSource?.toUpperCase() || "AUTO") : source.value.toUpperCase();
     document.getElementById("to-label").textContent = target.value.toUpperCase() || "—";
     const detectedName = [...source.options].find((choice) => choice.value === detectedSource)?.textContent;
-    detectedLanguage.textContent = source.value === "auto" && detectedName ? `${detectedName} detected` : "";
+    const providerName = [...source.options].find((choice) => choice.value === providerSource)?.textContent;
+    const mismatch = source.value !== "auto" && providerName && providerSource !== source.value;
+    detectedLanguage.textContent = mismatch ? `Google: ${providerName}` : source.value === "auto" && detectedName ? `${detectedName} detected` : "";
+    detectedLanguage.title = mismatch ? `Google interpreted this as ${providerName}. Check the translation.` : "";
+    detectedLanguage.classList.toggle("is-warning", Boolean(mismatch));
     detectedLanguage.hidden = !detectedLanguage.textContent;
   }
 
@@ -78,6 +83,7 @@
     share.value = "";
     copyShare.disabled = true;
     detectedSource = undefined;
+    providerSource = undefined;
     audio?.pause();
     audio = undefined;
     updateLabels();
@@ -138,7 +144,7 @@
     submit.firstElementChild.textContent = "Translating";
     setStatus("Translating…");
     try {
-      const body = new URLSearchParams({ engine: "cloudflare", text: input.value, from: source.value, to: target.value });
+      const body = new URLSearchParams({ engine: "google", text: input.value, from: source.value, to: target.value });
       const response = await fetch("/api/translate/", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -151,6 +157,7 @@
       if (controller !== currentRequest) return;
       output.value = result["translated-text"];
       detectedSource = result.source;
+      providerSource = result.provider_source;
       updateLabels();
       resultNote.textContent = "Translation ready";
       copyResult.disabled = false;
@@ -251,9 +258,9 @@
       audio.addEventListener("ended", () => URL.revokeObjectURL(objectUrl), { once: true });
       audio.addEventListener("error", () => URL.revokeObjectURL(objectUrl), { once: true });
       await audio.play();
-      setStatus("Playing translation.", "success");
+      setStatus("Playing audio.", "success");
     } catch (error) {
-      setStatus(error.message || "Speech is unavailable.", "error");
+      setStatus(error.name === "NotSupportedError" ? "This browser could not play the audio." : error.message || "Speech is unavailable.", "error");
     } finally {
       updateSpeechActions();
     }

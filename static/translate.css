@@ -102,6 +102,7 @@ h1 { margin: 0; font-size: clamp(68px, 8.8vw, 136px); line-height: .88; letter-s
 .language-control select { flex: 1; min-width: 0; min-height: 42px; border: 0; padding: 0 24px 0 0; color: var(--ink); background: transparent; font-size: 19px; font-weight: 600; appearance: none; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 6px center; }
 .language-control select option { color: var(--ink); background: var(--surface); }
 .detected-language { flex: none; padding: 7px 10px; border: 1px solid var(--rule); color: var(--accent); font: 600 11px/1.2 var(--mono); white-space: nowrap; }
+.detected-language.is-warning { color: var(--error); border-color: currentColor; }
 .swap-button { width: 42px; height: 42px; margin: 0 auto; display: grid; place-items: center; border: 1px solid var(--rule); background: var(--surface-deep); color: var(--accent); transition: background .18s, transform .18s; }
 .swap-button:hover { background: var(--swap-hover); transform: rotate(180deg); }
 

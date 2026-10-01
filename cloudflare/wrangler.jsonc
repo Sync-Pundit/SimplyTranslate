@@ -4,43 +4,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
-  "ai": {
-    "binding": "AI"
-  },
-  "durable_objects": {
-    "bindings": [
-      { "name": "AFRICAN_TRANSLATOR", "class_name": "AfricanTranslator" }
-    ]
-  },
-  "migrations": [
-    { "tag": "african-translator-v1", "new_sqlite_classes": ["AfricanTranslator"] }
-  ],
-  "containers": [
-    {
-      "class_name": "AfricanTranslator",
-      "image": "./Dockerfile.african",
-      "instance_type": "standard-3",
-      "max_instances": 1
-    }
-  ],
-  "previews": {
-    "ai": {
-      "binding": "AI"
-    },
-    "durable_objects": {
-      "bindings": [
-        { "name": "AFRICAN_TRANSLATOR", "class_name": "AfricanTranslator" }
-      ]
-    },
-    "containers": [
-      {
-        "class_name": "AfricanTranslator",
-        "image": "./Dockerfile.african",
-        "instance_type": "standard-3",
-        "max_instances": 1
-      }
-    ]
-  },
+  "previews": {},
   "assets": {
     "directory": "../static",
     "binding": "ASSETS"

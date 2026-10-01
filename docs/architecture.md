@@ -1,55 +1,36 @@
-# Cloudflare architecture
+# Translate architecture
 
-## Request path
+The Cloudflare Worker serves the interface and `/docs` from the repository's static assets. It owns `/api/translate/`, language discovery, `/api/tts/`, capabilities, and health. The browser sends translation text to the Worker with a form POST. The Worker sends one request to Google Translate's web RPC for translation and automatic detection. The response is parsed inside the Worker and returned as JSON.
 
-`cloudflare/src/index.js` handles the page, `/docs`, and API routes. The app markup lives in `cloudflare/src/page.js`; `cloudflare/src/docs.js` renders the public guide from the Worker's current language list. Wrangler uploads the files in `static/` as Workers Static Assets, and both pages load their CSS and JavaScript from the same origin. The Worker does not store translations or user history.
+The page always uses Google. The optional `engine=openai` API path sends text to GPT-5 nano when `OPENAI_API_KEY` is configured. A configured key does not change the page or default API provider. The OpenAI path retains contextual hints for a few Zulu phrases. Google's RPC has no glossary or prompt control.
 
-The browser sends text to `/api/translate/`. When `OPENAI_API_KEY` is configured, the Worker sends text to OpenAI's GPT-5 nano for detection and translation in one request. It requests structured JSON and sets `store: false`. Without the key, `from=auto` asks Workers AI to identify a supported language from the first 1,000 characters before translation. Both routes return an error when detection is uncertain or unsupported. Neither silently assumes English.
+The **Listen** button calls the Worker only after a click. The Worker fetches MP3 audio from Google's speech endpoint for English, French, or Spanish. Long text is divided into provider-sized requests and the MP3 data is joined in order. The Worker no longer binds Workers AI or routes any translation to a Container.
 
-Without the OpenAI key, translation uses Cloudflare's M2M100 model for the original language pairs. Zulu to English, translation into Zulu, and Afrikaans pairs within the original language set use the Cloudflare-hosted Llama model. The [15 international additions](languages.md) use Cloudflare-hosted Qwen3 for other directions after short live comparisons exposed errors from M2M100 and Llama. If the selected source and target languages match, the Worker returns the input without a model call. The browser sends text to `/api/tts/` only when a user selects **Listen**. Speech uses MeloTTS and is available for English, French, and Spanish.
+## Source detection and language choices
 
-Without the OpenAI key, the [17 additional African languages](languages.md#african-model-coverage) use a quantized AfriSLM model hosted in a Cloudflare Container. The Worker reaches it through a Durable Object binding. AfriSLM is trained chiefly for English to African translation and back, so pairs without English pass through English. The model is embedded in the image at build time; inference stays in the Cloudflare account. Zulu and Afrikaans retain their existing routes.
+The source menu has 45 text languages plus **Detect language**. A Google RPC response includes the language it inferred. For automatic detection, Translate reports that code when it maps to a listed language. An unsupported or uncertain code asks the user to select the source manually. Short phrases can be misidentified; selecting the source is the more reliable path.
 
-The Zulu to English prompts include a small glossary only when a known term appears in the source. It covers a few colloquial words, music terms, and place names alongside common forms such as `wenzani`. On the OpenAI route, two or more glossary matches also identify a likely Zulu source before translation. The glossary gives context to the model without replacing the source text. Short phrases can still be ambiguous, especially when a phrase is also a title. Broader Zulu quality needs native-speaker evaluation.
+If a user explicitly selects a language and Google reports another listed language, Translate keeps the selected source in the API response and adds `provider_source`. The page shows the difference beside the source menu. It does not hide the upstream interpretation. When source and target are explicitly the same, the Worker returns the input without an external request.
 
-| Function | Model or resource | Current coverage |
-| --- | --- | --- |
-| Text detection and translation with `OPENAI_API_KEY` | GPT-5 nano | All listed text languages; linguistic quality still needs evaluation |
-| Translation | `@cf/meta/m2m100-1.2b` | Original language pairs not covered by the routes below |
-| International translation | `@cf/qwen/qwen3-30b-a3b-fp8` | Pairs involving any of the 15 new languages, except into Zulu |
-| Additional African languages | AfriSLM 0.8B Q4 in Cloudflare Containers | English to and from 17 new languages; other pairs pivot through English |
-| Zulu translation | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | Translation into Zulu; Zulu to English uses a relevant glossary hint when available |
-| Afrikaans pairs | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | Translation to and from Afrikaans within the original language set |
-| Source detection | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | Listed languages; `und` means no supported language was identified |
-| Speech | `@cf/myshell-ai/melotts` | English, French, and Spanish |
-| Interface files | Workers Static Assets | `static/`, configured by `cloudflare/wrangler.jsonc` |
+The old `engine=cloudflare` parameter is accepted as an alias for the Google default while existing clients migrate. `engine=libre` still returns HTTP 503. Other unknown engines return HTTP 400. See the [API reference](api.md) for the full contract.
 
-The production and branch Preview configurations declare the Cloudflare bindings. The OpenAI key is a runtime secret, not a build variable. The assets directory stays at the top level of the Wrangler config because Previews use the branch's asset files.
+## Privacy and failure behavior
 
-## Browser behavior
+Text is sent to Google for translation and detection. OpenAI receives text only on an explicit `engine=openai` request. Speech text is sent to Google in a URL after the user selects **Listen**. Translate keeps no server-side translation history and sends `Cache-Control: no-store` on API responses. A copied share link contains the original text in its query string.
 
-The interface and `/docs` have light and dark themes. They start with the system preference and share a manual choice in the browser's local storage. The source and result panes use different surfaces in both themes.
+The Google RPC and speech URL are private web interfaces. Their format, access rules, and behavior may change without notice. Network or upstream failures return HTTP 503. A malformed translation or audio response returns HTTP 502. Neither is presented as a successful translation. `/api/health/` reports configured routes; it does not call Google.
 
-The browser uses a POST request for translation. **Copy share link** creates a URL with the source text and language choices, then copies it to the clipboard. Opening that URL loads and translates the source text again. Anyone with the link can read the original text in its query string.
+## Migration status
 
-## Migration boundary
+The original Quart app remains in `main.py`, with a different API and engine list. The Worker does not implement its `/api/get_languages/` or `/translate/...` routes. Check external consumers before moving a public domain.
 
-The original Quart application remains in `main.py`. Its [legacy API documentation](../api.md) describes provider engines and routes that the Worker does not implement. The Worker accepts the `cloudflare` engine or an omitted engine. Requests for `libre` return a service-unavailable error while Libre is disabled. Requests for other engine names return an unsupported-engine error.
+The former African model Container, Durable Object, and Workers AI bindings have been removed from the Worker config. There is no deletion migration, so this code does not intentionally delete the old namespace or data. Retiring old Cloudflare resources is an account operation after the new route is live and verified. See [Deployment](deployment.md).
 
-The Cloudflare Worker does not implement the legacy `/api/get_languages/` endpoint, the old `/translate/...` route, or server-side preferences. Check existing consumers before moving the public domain. The [Cloudflare API reference](api.md) lists the current routes.
+## Launch checks
 
-## Launch gaps
-
-- Confirm audible speech playback in a regular browser. A hosted speech request returned a valid WAV file, but playback in the in-app preview failed with a media source error.
-- Decide how to handle speech for German, Italian, Portuguese, and Zulu. MeloTTS is not enabled for those languages in this Worker.
-- Compare translation quality and latency across supported language pairs, especially Zulu. Check ambiguous and mixed-language detection.
-- Compare GPT-5 nano output against native-speaker examples before relying on it for African languages.
-- Evaluate the [international additions](languages.md) with native speakers and varied text lengths; model coverage and smoke checks do not establish linguistic accuracy.
-- Evaluate the 17 additional African languages with fluent speakers. Short live checks found wrong output for Igbo, Luganda, and Wolof; model coverage does not establish accuracy.
-- Add the remaining South African written languages with a suitable model: Northern Sotho, Swati, Venda, Tsonga, and South Ndebele remain unavailable.
-- Measure cold starts, throughput, and cost for the African model container; it currently runs one instance with two CPU cores.
-- Measure the cost and latency of the Zulu to English language-model path at production load.
-- Add account-level cost and abuse controls before exposing public billable inference.
-- Review consumers of legacy routes and the public domain cutover.
-
-As of 2026-10-01, hosted Workers AI text and speech requests were exercised during development. The African model was compared locally against short sample sentences; native-speaker review remains open.
+- Review African-language and colloquial translations with fluent speakers. A small set of Igbo, Luganda, Wolof, and Zulu examples exposed errors in multiple providers.
+- Test short and mixed-language detection; Google can misidentify a short phrase even when longer text is correct.
+- Check speech playback, including text that needs more than one audio chunk, in regular browsers.
+- Observe Google RPC failures and rate limits under real traffic. The endpoint has no public service contract.
+- Decide whether to move the default to the supported Google Cloud Translation REST API after measuring its quality, coverage, and cost separately.
+- Check existing clients of the legacy Quart routes before public cutover.

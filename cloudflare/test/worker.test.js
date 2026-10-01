@@ -7,536 +7,253 @@ function request(path, init) {
   return new Request(`https://translate.example${path}`, init);
 }
 
-function ai(result = { translated_text: "Bonjour" }) {
+function googleFrame(translation, source = "en") {
+  const entry = [];
+  entry[5] = [[translation]];
+  const payload = [null, [[entry]], source];
+  const outer = [["wrb.fr", "MkEWBc", JSON.stringify(payload), null]];
+  const frame = JSON.stringify(outer);
+  return new Response(`)]}'\n\n${frame.length}\n${frame}\n100\n[["extra"]]`, {
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+function mockGoogle(t, answer = "Bonjour", source = "en") {
   const calls = [];
-  return {
-    calls,
-    env: {
-      AI: {
-        async run(model, values, options) {
-          calls.push({ model, values, options });
-          if (result instanceof Error) throw result;
-          return typeof result === "function" ? result(model, values, options) : result;
-        },
-      },
-    },
-  };
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push({ url: String(url), options });
+    return googleFrame(answer, source);
+  });
+  return calls;
 }
 
-function africanAi(result = "Molo") {
-  const model = ai({ response: { translation: "Hello" } });
-  const containerCalls = [];
-  model.env.AFRICAN_TRANSLATOR = {
-    idFromName(name) {
-      assert.equal(name, "shared");
-      return name;
-    },
-    get() {
-      return {
-        async fetch(request) {
-          const body = await request.json();
-          containerCalls.push({ url: request.url, body });
-          return Response.json({ choices: [{ message: { content: result } }] });
-        },
-      };
-    },
-  };
-  return { ...model, containerCalls };
-}
-
-test("form translation uses the Cloudflare model and keeps the legacy text field", async () => {
-  const model = ai();
+test("form requests use the Google RPC and retain the translated-text API field", async (t) => {
+  const calls = mockGoogle(t);
   const response = await handleRequest(request("/api/translate/", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ engine: "cloudflare", text: "Hello", from: "English", to: "fr" }),
-  }), model.env);
-
+    body: new URLSearchParams({ engine: "google", text: "Hello", from: "English", to: "fr" }),
+  }));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), {
-    "translated-text": "Bonjour", source: "en", target: "fr", engine: "cloudflare",
-  });
-  assert.deepEqual(model.calls, [{ model: "@cf/meta/m2m100-1.2b", values: { text: "Hello", source_lang: "en", target_lang: "fr" }, options: undefined }]);
-});
-
-test("GET and JSON POST accept explicit source languages, including Zulu", async () => {
-  const model = ai({ response: { translation: "Sawubona" } });
-  const get = await handleRequest(request("/api/translate/?text=Hello&from=en&to=zu"), model.env);
-  assert.equal(get.status, 200);
-  assert.equal((await get.json())["translated-text"], "Sawubona");
-
-  const post = await handleRequest(request("/api/translate/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: "Hello", from: "en", to: "zu" }),
-  }), model.env);
-  assert.equal(post.status, 200);
-  assert.equal(model.calls.length, 2);
-  assert.equal(model.calls[1].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  assert.match(model.calls[1].values.messages[0].content, /English into natural Zulu/);
-});
-
-test("automatic source detection chooses a supported language before translation", async () => {
-  const model = ai((name) => name.includes("llama") ? { response: { language: "fr" } } : { translated_text: "Hello" });
-  const response = await handleRequest(request("/api/translate/?text=Bonjour&from=auto&to=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).source, "fr");
-  assert.equal(model.calls.length, 2);
-  assert.equal(model.calls[0].values.response_format.type, "json_schema");
-  assert.equal(model.calls[1].values.source_lang, "fr");
-});
-
-test("international languages are listed and routed through the multilingual model", async () => {
-  const added = new Map([
-    ["ar", "Arabic"], ["bn", "Bengali"], ["zh", "Chinese"],
-    ["hi", "Hindi"], ["ja", "Japanese"], ["ko", "Korean"],
-    ["ms", "Malay"], ["mr", "Marathi"], ["fa", "Persian"],
-    ["ru", "Russian"], ["tl", "Tagalog"], ["th", "Thai"],
-    ["tr", "Turkish"], ["ur", "Urdu"], ["vi", "Vietnamese"],
-  ]);
-  const sourceList = await (await handleRequest(request("/api/source_languages/"))).text();
-  const targetList = await (await handleRequest(request("/api/target_languages/"))).text();
-  const model = ai((name) => name.includes("qwen")
-    ? { response: { translation: "Hello" } }
-    : { translated_text: "Hello" });
-
-  for (const [code, name] of added) {
-    assert.match(sourceList, new RegExp(`\\n${name}\\n${code}\\n`));
-    assert.match(targetList, new RegExp(`\\n${name}\\n${code}\\n`));
-    const response = await handleRequest(request(`/api/translate/?text=Hello&from=en&to=${code}`), model.env);
-    assert.equal(response.status, 200, code);
-    const englishToTarget = model.calls.at(-1);
-    assert.equal(englishToTarget.model, "@cf/qwen/qwen3-30b-a3b-fp8");
-    assert.match(englishToTarget.values.messages[0].content, new RegExp(`English into natural ${name}`));
-
-    const reverse = await handleRequest(request(`/api/translate/?text=Sample&from=${code}&to=en`), model.env);
-    assert.equal(reverse.status, 200, code);
-    assert.equal(model.calls.at(-1).model, "@cf/qwen/qwen3-30b-a3b-fp8");
-  }
-  assert.equal(model.calls.length, added.size * 2);
-
-  const detected = ai((name) => name.includes("llama")
-    ? { response: { language: "ja" } }
-    : { response: { translation: "Hello" } });
-  const response = await handleRequest(request("/api/translate/?text=%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF&from=auto&to=en"), detected.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).source, "ja");
-  assert.equal(detected.calls[1].model, "@cf/qwen/qwen3-30b-a3b-fp8");
-  assert.match(detected.calls[1].values.messages[0].content, /Japanese into natural English/);
-});
-
-test("translations into Zulu avoid the multilingual route", async () => {
-  const model = ai({ response: { translation: "Sawubona" } });
-  for (const from of ["en", "ar"]) {
-    const response = await handleRequest(request(`/api/translate/?text=Hello&from=${from}&to=zu`), model.env);
-    assert.equal(response.status, 200);
-    assert.equal(model.calls.at(-1).model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  }
-});
-
-test("detected Zulu uses a glossary for moni without losing the term", async () => {
-  const model = ai((name, values) => values.response_format?.json_schema?.properties?.language
-    ? { response: { language: "zu" } }
-    : { response: { translation: "Come, sinner, come to Jesus" } });
-  const response = await handleRequest(request("/api/translate/?text=Woza%20moni%2C%20woza%20kuJesu&from=auto&to=en"), model.env);
-
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    "translated-text": "Come, sinner, come to Jesus", source: "zu", target: "en", engine: "cloudflare",
-  });
-  assert.equal(model.calls.length, 2);
-  assert.equal(model.calls[1].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  assert.match(model.calls[1].values.messages[0].content, /moni = sinner/);
-  assert.equal(model.calls[1].values.messages[1].content, "Woza moni, woza kuJesu");
-});
-
-test("ordinary Zulu to English uses the language model without an unrelated glossary", async () => {
-  const model = ai({ response: { translation: "Hello" } });
-  const response = await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json())["translated-text"], "Hello");
-  assert.equal(model.calls[0].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  assert.doesNotMatch(model.calls[0].values.messages[0].content, /moni = sinner/);
-});
-
-test("Zulu question keeps its person and form of address in the language-model request", async () => {
-  const model = ai({ response: { translation: "But what are you doing there, brother?" } });
-  const response = await handleRequest(request("/api/translate/?text=Kanti%20wenzani%20lapho%20bafo%3F&from=zu&to=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json())["translated-text"], "But what are you doing there, brother?");
-  assert.match(model.calls[0].values.messages[0].content, /wenzani = what are you doing/);
-  assert.match(model.calls[0].values.messages[0].content, /bafo = brother \(informal address\)/);
-  assert.match(model.calls[0].values.messages[0].content, /kanti = but or so/);
-});
-
-test("Zulu slang and city-life terms reach the model with local context", async () => {
-  const examples = [
-    ["cava wenzani?", ["cava = so (a Kasi Tali cue", "wenzani = what are you doing"]],
-    ["ushuni wenkabi", ["ushuni wenkabi = the hitman's style"]],
-    ["wazini ngempilo yaseGoli wena?", ["wazini = what do you know", "ngempilo = about life", "yaseGoli = in Goli"]],
-  ];
-
-  for (const [text, terms] of examples) {
-    const model = ai({ response: { translation: "Example" } });
-    const response = await handleRequest(request("/api/translate/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, from: "zu", to: "en" }),
-    }), model.env);
-    assert.equal(response.status, 200);
-    assert.equal(model.calls.length, 1);
-    const prompt = model.calls[0].values.messages[0].content;
-    for (const term of terms) assert.ok(prompt.includes(term), `${text}: missing ${term}`);
-    if (text === "ushuni wenkabi") assert.doesNotMatch(prompt, /(?:relevant:|;)\s*(?:ushuni|wenkabi) =/);
-    assert.match(prompt, /Preserve conjunctions and discourse markers/);
-    assert.match(prompt, /sentence-final emphatic wena/);
-    assert.equal(model.calls[0].values.messages[1].content, text);
-  }
-
-  const unrelated = ai({ response: { translation: "Hello" } });
-  await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), unrelated.env);
-  assert.doesNotMatch(unrelated.calls[0].values.messages[0].content, /ushuni|cava|yaseGoli/);
-});
-
-test("Afrikaans is listed and uses the language model in either direction", async () => {
-  const model = ai({ response: { translation: "Good morning" } });
-  const response = await handleRequest(request("/api/translate/?text=Goeiem%C3%B4re&from=af&to=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).source, "af");
-  assert.equal(model.calls[0].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  assert.match(model.calls[0].values.messages[0].content, /Afrikaans into natural English/);
-
-  const list = await handleRequest(request("/api/source_languages/"), model.env);
-  assert.match(await list.text(), /Afrikaans\naf\n/);
-  const reverse = await handleRequest(request("/api/translate/?text=Good%20morning&from=en&to=af"), model.env);
-  assert.equal(reverse.status, 200);
-  assert.match(model.calls[1].values.messages[0].content, /English into natural Afrikaans/);
-});
-
-test("African language choices reach the specialist container", async () => {
-  const added = new Map([
-    ["xh", "Xhosa"], ["st", "Southern Sotho"], ["tn", "Setswana"],
-    ["am", "Amharic"], ["ha", "Hausa"], ["ig", "Igbo"],
-    ["rw", "Kinyarwanda"], ["ln", "Lingala"], ["lg", "Luganda"],
-    ["mg", "Malagasy"], ["ny", "Nyanja"], ["om", "Oromo"],
-    ["sn", "Shona"], ["so", "Somali"], ["sw", "Swahili"],
-    ["wo", "Wolof"], ["yo", "Yoruba"],
-  ]);
-  const sourceList = await (await handleRequest(request("/api/source_languages/"))).text();
-  const targetList = await (await handleRequest(request("/api/target_languages/"))).text();
-  for (const [code, name] of added) {
-    assert.match(sourceList, new RegExp(`\\n${name}\\n${code}\\n`));
-    assert.match(targetList, new RegExp(`\\n${name}\\n${code}\\n`));
-  }
-
-  const model = africanAi("Molo");
-  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json())["translated-text"], "Molo");
-  assert.equal(model.containerCalls.length, 1);
-  assert.equal(new URL(model.containerCalls[0].url).pathname, "/v1/chat/completions");
-  assert.match(model.containerCalls[0].body.messages[0].content, /English to Xhosa/);
-  assert.equal(model.calls.length, 0);
-});
-
-test("African to African translation pivots through English", async () => {
-  const model = africanAi("Hello");
-  const response = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=sw"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal(model.containerCalls.length, 2);
-  assert.match(model.containerCalls[0].body.messages[0].content, /Xhosa to English/);
-  assert.match(model.containerCalls[1].body.messages[0].content, /English to Swahili/);
-  assert.match(model.containerCalls[1].body.messages[1].content, /Hello/);
-});
-
-test("African translation fails clearly without a container or with empty model output", async () => {
-  const missing = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), ai().env);
-  assert.equal(missing.status, 503);
-  const empty = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), africanAi("").env);
-  assert.equal(empty.status, 502);
-  const long = await handleRequest(request(`/api/translate/?text=${"a".repeat(1801)}&from=en&to=xh`), africanAi().env);
-  assert.equal(long.status, 413);
-});
-
-test("African translation retries a container that is still starting", async () => {
-  const model = africanAi("Molo");
-  let calls = 0;
-  model.env.AFRICAN_TRANSLATOR.get = () => ({
-    async fetch() {
-      calls++;
-      return calls === 1
-        ? new Response("Container starting", { status: 503 })
-        : Response.json({ choices: [{ finish_reason: "stop", message: { content: "Molo" } }] });
-    },
-  });
-  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal(calls, 2);
-});
-
-test("an OpenAI secret routes translation and detection through GPT-5 nano", async (t) => {
-  const calls = [];
-  t.mock.method(globalThis, "fetch", async (url, options) => {
-    calls.push({ url, options });
-    return Response.json({
-      status: "completed",
-      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "xh", translation: "Hello" }) }] }],
-    });
-  });
-  const response = await handleRequest(request("/api/translate/?text=Molo&from=auto&to=en"), {
-    OPENAI_API_KEY: "test-key",
-  });
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    "translated-text": "Hello", source: "xh", target: "en", engine: "cloudflare",
+    "translated-text": "Bonjour", source: "en", target: "fr", engine: "google",
   });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "https://api.openai.com/v1/responses");
-  assert.equal(calls[0].options.headers.Authorization, "Bearer test-key");
-  const body = JSON.parse(calls[0].options.body);
-  assert.equal(body.model, "gpt-5-nano");
-  assert.equal(body.store, false);
-  assert.equal(body.reasoning.effort, "minimal");
-  assert.equal(body.text.format.type, "json_schema");
-  assert.doesNotMatch(body.instructions, /contextual clues/);
-  const health = await (await handleRequest(request("/api/health/"), { OPENAI_API_KEY: "test-key" })).json();
-  assert.equal(health.translation_provider, "openai");
-  assert.equal(health.openai_model, "gpt-5-nano");
+  assert.match(calls[0].url, /translate\.google\.com\/.*batchexecute/);
+  assert.equal(calls[0].options.method, "POST");
+  const encoded = new URLSearchParams(calls[0].options.body).get("f.req");
+  const rpc = JSON.parse(encoded);
+  assert.equal(rpc[0][0][0], "MkEWBc");
+  assert.deepEqual(JSON.parse(rpc[0][0][1])[0], ["Hello", "en", "fr", true]);
 });
 
-test("OpenAI gets relevant Zulu context for colloquial text", async (t) => {
-  let instructions;
-  t.mock.method(globalThis, "fetch", async (_url, options) => {
-    instructions = JSON.parse(options.body).instructions;
+test("automatic detection uses one Google request and returns its source", async (t) => {
+  const calls = mockGoogle(t, "Hello, how are you?", "fr");
+  const response = await handleRequest(request("/api/translate/?text=Bonjour%2C%20comment%20allez-vous%3F&from=auto&to=en"));
+  assert.deepEqual(await response.json(), {
+    "translated-text": "Hello, how are you?", source: "fr", target: "en", engine: "google",
+  });
+  assert.equal(calls.length, 1);
+  const rpc = JSON.parse(new URLSearchParams(calls[0].options.body).get("f.req"));
+  assert.equal(JSON.parse(rpc[0][0][1])[0][1], "auto");
+});
+
+test("JSON and multipart clients keep the translation contract", async (t) => {
+  const calls = mockGoogle(t, "Hola", "en");
+  const jsonResponse = await handleRequest(request("/api/translate/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "Hello", from: "en", to: "es" }),
+  }));
+  assert.equal(jsonResponse.status, 200);
+  assert.equal((await jsonResponse.json())["translated-text"], "Hola");
+
+  const form = new FormData();
+  form.set("text", "Hello");
+  form.set("from", "en");
+  form.set("to", "es");
+  const multipartResponse = await handleRequest(request("/api/translate/", { method: "POST", body: form }));
+  assert.equal(multipartResponse.status, 200);
+  assert.equal((await multipartResponse.json()).engine, "google");
+  assert.equal(calls.length, 2);
+});
+
+test("explicit Swati stays selected when Google interprets the text as Zulu", async (t) => {
+  mockGoogle(t, "An investigation has been launched.", "zu");
+  const response = await handleRequest(request("/api/translate/?text=Kusungulwe%20luphenyo&from=ss&to=en"));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    "translated-text": "An investigation has been launched.", source: "ss", target: "en", engine: "google", provider_source: "zu",
+  });
+});
+
+test("a supported language mismatch reports what Google inferred", async (t) => {
+  mockGoogle(t, "Hello", "zu");
+  const response = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=en"));
+  assert.deepEqual(await response.json(), {
+    "translated-text": "Hello", source: "xh", target: "en", engine: "google", provider_source: "zu",
+  });
+});
+
+test("an unsupported automatic detection asks for manual source selection", async (t) => {
+  mockGoogle(t, "Hello", "und");
+  const response = await handleRequest(request("/api/translate/?text=Bonjour&from=auto&to=en"));
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).error, "language_not_detected");
+});
+
+test("language aliases from Google map to existing menu codes", async (t) => {
+  mockGoogle(t, "Hello", "fil");
+  const response = await handleRequest(request("/api/translate/?text=Kumusta&from=auto&to=en"));
+  assert.equal((await response.json()).source, "tl");
+});
+
+test("all retained language choices remain in the discovery routes", async () => {
+  const sources = await (await handleRequest(request("/api/source_languages/"))).text();
+  const targets = await (await handleRequest(request("/api/target_languages/"))).text();
+  for (const [name, code] of [["Zulu", "zu"], ["Xhosa", "xh"], ["Wolof", "wo"], ["Igbo", "ig"], ["Luganda", "lg"], ["Northern Sotho", "nso"], ["Swati", "ss"], ["Venda", "ve"], ["Tsonga", "ts"], ["South Ndebele", "nr"], ["Arabic", "ar"], ["Japanese", "ja"]]) {
+    assert.match(sources, new RegExp(`\\n${name}\\n${code}\\n`));
+    assert.match(targets, new RegExp(`\\n${name}\\n${code}\\n`));
+  }
+  assert.match(sources, /Detect language\nauto\n/);
+  assert.doesNotMatch(targets, /\nauto\n/);
+});
+
+test("same-language input returns unchanged without calling an external provider", async (t) => {
+  const calls = mockGoogle(t);
+  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=en"));
+  assert.deepEqual(await response.json(), {
+    "translated-text": "Hello", source: "en", target: "en", engine: "google",
+  });
+  assert.equal(calls.length, 0);
+});
+
+test("Libre, unknown engines, and invalid input never call Google", async (t) => {
+  const calls = mockGoogle(t);
+  for (const [path, status, error] of [
+    ["/api/translate/?engine=libre&text=Hello&from=en&to=fr", 503, "engine_unavailable"],
+    ["/api/translate/?engine=bing&text=Hello&from=en&to=fr", 400, "unsupported_engine"],
+    ["/api/translate/?text=%20&from=en&to=fr", 400, "invalid_text"],
+    ["/api/translate/?text=Hello&from=constructor&to=fr", 422, "unsupported_language"],
+    ["/api/translate/?text=Hello&from=en&to=auto", 422, "unsupported_language"],
+  ]) {
+    const response = await handleRequest(request(path));
+    assert.equal(response.status, status, path);
+    assert.equal((await response.json()).error, error, path);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("the former cloudflare engine remains a compatibility alias for Google", async (t) => {
+  mockGoogle(t);
+  const response = await handleRequest(request("/api/translate/?engine=cloudflare&text=Hello&from=en&to=fr"));
+  assert.equal((await response.json()).engine, "google");
+});
+
+test("malformed or empty RPC payloads are errors, never successful translations", async (t) => {
+  let next = new Response("<html>blocked</html>");
+  t.mock.method(globalThis, "fetch", async () => next);
+  let response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=fr"));
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).error, "invalid_engine_response");
+
+  next = googleFrame(" ");
+  response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=fr"));
+  assert.equal(response.status, 502);
+  next = new Response("unavailable", { status: 429 });
+  response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=fr"));
+  assert.equal(response.status, 503);
+  assert.doesNotMatch(JSON.stringify(await response.json()), /Google translation returned HTTP/);
+});
+
+test("OpenAI is optional and only used when explicitly requested", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("translate.google.com")) return googleFrame("Hello", "zu");
     return Response.json({
       status: "completed",
       output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "zu", translation: "What are you doing?" }) }] }],
     });
   });
-  const response = await handleRequest(request("/api/translate/?text=cava%20wenzani%3F&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
-  assert.equal(response.status, 200);
-  assert.match(instructions, /cava = so \(a Kasi Tali cue/);
-  assert.match(instructions, /cava wenzani\? = So, what are you doing\?/);
-  assert.match(instructions, /wenzani = what are you doing/);
-  assert.match(instructions, /The source language is Zulu \(zu\)/);
-  assert.doesNotMatch(instructions, /ushuni =/);
-});
-
-test("OpenAI keeps Goli and the Zulu final emphasis in translation context", async (t) => {
-  let instructions;
-  t.mock.method(globalThis, "fetch", async (_url, options) => {
-    instructions = JSON.parse(options.body).instructions;
-    return Response.json({
-      status: "completed",
-      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "zu", translation: "What do you know about life in Goli?" }) }] }],
-    });
-  });
-  const response = await handleRequest(request("/api/translate/?text=wazini%20ngempilo%20yaseGoli%20wena%3F&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
-  assert.equal(response.status, 200);
-  assert.match(instructions, /keep the colloquial place name Goli/);
-  assert.match(instructions, /do not append a separate ', you'/);
-});
-
-test("OpenAI treats ushuni wenkabi as a colloquial phrase", async (t) => {
-  let instructions;
-  t.mock.method(globalThis, "fetch", async (_url, options) => {
-    instructions = JSON.parse(options.body).instructions;
-    return Response.json({
-      status: "completed",
-      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "zu", translation: "The hitman's style" }) }] }],
-    });
-  });
-  const response = await handleRequest(request("/api/translate/?text=ushuni%20wenkabi&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
-  assert.equal(response.status, 200);
-  assert.match(instructions, /The source language is Zulu \(zu\)/);
-  assert.match(instructions, /ushuni wenkabi = the hitman's style/);
-  assert.doesNotMatch(instructions, /ushuni = a tune|wenkabi = of the ox/);
-});
-
-test("OpenAI cannot relabel a source inferred from known Zulu phrases", async (t) => {
-  t.mock.method(globalThis, "fetch", async () => Response.json({
-    status: "completed",
-    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "af", translation: "What are you doing?" }) }] }],
-  }));
-  const response = await handleRequest(request("/api/translate/?text=cava%20wenzani%3F&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
-  assert.equal(response.status, 502);
-  assert.equal((await response.json()).error, "invalid_detection_response");
-});
-
-test("OpenAI detection errors and provider failures cannot fall through to the container", async (t) => {
-  let output = { source: "und", translation: "" };
-  const providerFetch = t.mock.method(globalThis, "fetch", async () => Response.json({
-    status: "completed",
-    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(output) }] }],
-  }));
   const env = { OPENAI_API_KEY: "test-key" };
-  const unknown = await handleRequest(request("/api/translate/?text=Hi&from=auto&to=en"), env);
-  assert.equal(unknown.status, 422);
-  assert.equal((await unknown.json()).error, "language_not_detected");
-  output = { source: "xh", translation: "" };
-  const empty = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=en"), env);
-  assert.equal(empty.status, 502);
-  assert.equal((await empty.json()).error, "invalid_engine_response");
-  providerFetch.mock.mockImplementation(async () => new Response("private provider error", { status: 401 }));
-  const unavailable = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=en"), env);
-  assert.equal(unavailable.status, 503);
-  const body = await unavailable.text();
-  assert.equal(JSON.parse(body).error, "engine_unavailable");
-  assert.doesNotMatch(body, /private provider error|test-key/);
+  const defaultResponse = await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), env);
+  assert.equal((await defaultResponse.json()).engine, "google");
+  assert.equal(calls[0].url.includes("translate.google.com"), true);
+
+  const optional = await handleRequest(request("/api/translate/?engine=openai&text=cava%20wenzani%3F&from=auto&to=en"), env);
+  assert.equal(optional.status, 200);
+  assert.equal((await optional.json()).engine, "openai");
+  assert.equal(calls[1].url, "https://api.openai.com/v1/responses");
+  assert.equal(calls[1].options.headers.Authorization, "Bearer test-key");
+  const body = JSON.parse(calls[1].options.body);
+  assert.equal(body.model, "gpt-5-nano");
+  assert.equal(body.store, false);
+  assert.match(body.instructions, /cava wenzani\? = So, what are you doing\?/);
+
+  const missing = await handleRequest(request("/api/translate/?engine=openai&text=Hello&from=en&to=fr"));
+  assert.equal(missing.status, 503);
+  assert.equal(calls.length, 2);
 });
 
-test("OpenAI detection preserves source text when the detected language is the target", async (t) => {
-  t.mock.method(globalThis, "fetch", async () => Response.json({
-    status: "completed",
-    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "en", translation: "Hi" }) }] }],
-  }));
-  const response = await handleRequest(request("/api/translate/?text=Hello&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
+test("health and capabilities describe the available paths without a model binding", async () => {
+  const health = await (await handleRequest(request("/api/health/"), { OPENAI_API_KEY: "test-key" })).json();
+  assert.deepEqual(health, {
+    ok: true, engine: "google", translation_provider: "google-rpc", speech_provider: "google-tts", openai_available: true, openai_model: "gpt-5-nano",
+  });
+  const capabilities = await (await handleRequest(request("/api/capabilities/"))).json();
+  assert.deepEqual(capabilities, { automatic_source_detection: true, speech_languages: ["en", "es", "fr"] });
+});
+
+test("speech stays behind a request and returns Google MP3 audio", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    calls.push(String(url));
+    return new Response(new Uint8Array([0xff, 0xf3, 0x84, 0xc4]));
+  });
+  const response = await handleRequest(request("/api/tts/?text=Bonjour&lang=fr"));
   assert.equal(response.status, 200);
-  assert.equal((await response.json())["translated-text"], "Hello");
+  assert.equal(response.headers.get("Content-Type"), "audio/mpeg");
+  assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [0xff, 0xf3, 0x84, 0xc4]);
+  assert.equal(new URL(calls[0]).searchParams.get("q"), "Bonjour");
+  assert.equal(new URL(calls[0]).searchParams.get("tl"), "fr");
+
+  const unsupported = await handleRequest(request("/api/tts/?text=Hallo&lang=de"));
+  assert.equal(unsupported.status, 422);
+  assert.equal(calls.length, 1);
 });
 
-test("an empty Zulu translation is not reported as success", async () => {
-  const model = ai({ response: { translation: "" } });
-  const response = await handleRequest(request("/api/translate/?text=Woza%20moni&from=zu&to=en"), model.env);
+test("long speech is split into playable-sized provider requests", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    calls.push(new URL(url).searchParams.get("q"));
+    return new Response(new Uint8Array([0xff, 0xf3, 0x84, 0xc4]));
+  });
+  const text = Array(80).fill("Hello world.").join(" ");
+  const response = await handleRequest(request(`/api/tts/?lang=en&text=${encodeURIComponent(text)}`));
+  assert.equal(response.status, 200);
+  assert.ok(calls.length > 1);
+  assert.ok(calls.every((chunk) => chunk.length <= 180));
+  assert.equal((await response.arrayBuffer()).byteLength, calls.length * 4);
+});
+
+test("speech rejects invalid audio without exposing upstream content", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response("not audio"));
+  const response = await handleRequest(request("/api/tts/?text=Hello&lang=en"));
   assert.equal(response.status, 502);
   assert.equal((await response.json()).error, "invalid_engine_response");
-
-  const unavailable = await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), ai(new Error("private")).env);
-  assert.equal(unavailable.status, 503);
-  assert.equal((await unavailable.json()).error, "engine_unavailable");
 });
 
-test("automatic detection refuses unsupported, malformed, and unavailable results", async () => {
-  for (const [result, status, error] of [
-    [{ response: { language: "und" } }, 422, "language_not_detected"],
-    [{ response: { language: "xx" } }, 502, "invalid_detection_response"],
-    [new Error("private"), 503, "detection_unavailable"],
-  ]) {
-    const model = ai(result);
-    const response = await handleRequest(request("/api/translate/?text=Bonjour&to=en"), model.env);
-    assert.equal(response.status, status);
-    assert.equal((await response.json()).error, error);
-    assert.equal(model.calls.length, 1);
-  }
-});
-
-test("disabled Libre and unknown engines cannot fall through to Cloudflare AI", async () => {
-  const model = ai();
-  const libre = await handleRequest(request("/api/translate/?engine=libre&text=Hello&from=en&to=fr"), model.env);
-  assert.equal(libre.status, 503);
-  assert.equal((await libre.json()).error, "engine_unavailable");
-  const unknown = await handleRequest(request("/api/translate/?engine=google&text=Hello&from=en&to=fr"), model.env);
-  assert.equal(unknown.status, 400);
-  assert.equal((await unknown.json()).error, "unsupported_engine");
-  assert.equal(model.calls.length, 0);
-});
-
-test("unsupported or empty input is rejected before inference", async () => {
-  const model = ai();
-  for (const [path, status, error] of [
-    ["/api/translate/?text=%20&from=en&to=fr", 400, "invalid_text"],
-    ["/api/translate/?text=hello&from=constructor&to=fr", 422, "unsupported_language"],
-    ["/api/translate/?text=hello&from=en&to=auto", 422, "unsupported_language"],
-  ]) {
-    const response = await handleRequest(request(path), model.env);
-    assert.equal(response.status, status);
-    assert.equal((await response.json()).error, error);
-  }
-  assert.equal(model.calls.length, 0);
-});
-
-test("same-language text is returned without billable model inference", async () => {
-  const model = ai();
-  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json())["translated-text"], "Hello");
-  assert.equal(model.calls.length, 0);
-});
-
-test("model failures and empty output are not reported as successful translations", async () => {
-  const unavailable = await handleRequest(request("/api/translate/?text=Hello&from=en&to=fr"), ai(new Error("secret model detail")).env);
-  assert.equal(unavailable.status, 503);
-  assert.equal((await unavailable.json()).error, "engine_unavailable");
-  const empty = await handleRequest(request("/api/translate/?text=Hello&from=en&to=fr"), ai({ translated_text: "" }).env);
-  assert.equal(empty.status, 502);
-  assert.equal((await empty.json()).error, "invalid_engine_response");
-});
-
-test("health and capabilities report configured features", async () => {
-  const bad = await handleRequest(request("/api/health/"));
-  assert.equal(bad.status, 503);
-  assert.equal((await bad.json()).ok, false);
-  const good = await handleRequest(request("/api/health/"), ai().env);
-  assert.equal(good.status, 200);
-  const health = await good.json();
-  assert.equal(health.ok, true);
-  assert.equal(health.zulu_english_model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
-  assert.equal(health.international_model, "@cf/qwen/qwen3-30b-a3b-fp8");
-  const languages = await handleRequest(request("/api/source_languages/"));
-  assert.equal(languages.status, 200);
-  const body = await languages.text();
-  assert.match(body, /Zulu\nzu\n/);
-  assert.match(body, /Detect language\nauto\n/);
-  const targets = await (await handleRequest(request("/api/target_languages/"))).text();
-  assert.doesNotMatch(targets, /auto/i);
-  const capabilities = await (await handleRequest(request("/api/capabilities/"))).json();
-  assert.equal(capabilities.automatic_source_detection, true);
-  assert.deepEqual(capabilities.speech_languages, ["en", "es", "fr"]);
-});
-
-test("homepage is a same-origin browser flow with the new design", async () => {
-  const homepage = await handleRequest(request("/"));
-  assert.equal(homepage.status, 200);
-  assert.match(homepage.headers.get("Content-Security-Policy"), /connect-src 'self'/);
-  const html = await homepage.text();
-  assert.match(html, /cloudflare.js/);
-  assert.match(html, /Sync_Pundit/);
-  assert.match(html, /translate.css/);
-  assert.match(html, /id="detected-language"/);
-  assert.match(html, /href="\/docs">Docs<\/a>/);
-});
-
-test("public docs render the current language list and the product limits", async () => {
+test("home and docs contain the provider and retain the same-origin app flow", async () => {
+  const home = await handleRequest(request("/"));
+  assert.equal(home.status, 200);
+  assert.match(home.headers.get("Content-Security-Policy"), /connect-src 'self'/);
+  assert.match(home.headers.get("Content-Security-Policy"), /media-src blob:/);
+  assert.match(await home.text(), /GOOGLE TRANSLATE/);
   for (const path of ["/docs", "/docs/"]) {
-    const response = await handleRequest(request(path));
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("Cache-Control"), "no-store");
-    assert.match(response.headers.get("Content-Security-Policy"), /style-src 'self'/);
-    const html = await response.text();
-    assert.match(html, /<title>Docs \/ Translate \/ Sync_Pundit<\/title>/);
-    assert.match(html, /40 languages for text/);
-    assert.match(html, /<span>Marathi<\/span><code>mr<\/code>/);
-    assert.match(html, /Shared links include the original text/);
-    assert.match(html, /POST \/api\/translate\//);
-    assert.match(html, /href="\/docs" aria-current="page"/);
-    assert.doesNotMatch(html, /workers\.dev|translate\.syncpundit\.io/);
+    const docs = await handleRequest(request(path));
+    assert.equal(docs.status, 200);
+    assert.match((await docs.text()), /Google Translate/);
   }
-  const openAIDocs = await (await handleRequest(request("/docs"), { OPENAI_API_KEY: "test-key" })).text();
-  assert.match(openAIDocs, /This deployment sends text to OpenAI/);
-  assert.doesNotMatch(openAIDocs, /This deployment uses Cloudflare Workers AI for detection/);
-});
-
-test("speech uses Cloudflare audio and rejects unsupported languages before inference", async () => {
-  const model = ai(() => new Response(new Uint8Array([73, 68, 51, 0]), { headers: { "Content-Type": "audio/mpeg" } }));
-  const speech = await handleRequest(request("/api/tts/?text=Bonjour&lang=fr"), model.env);
-  assert.equal(speech.status, 200);
-  assert.equal(speech.headers.get("Content-Type"), "audio/mpeg");
-  assert.deepEqual([...new Uint8Array(await speech.arrayBuffer())], [73, 68, 51, 0]);
-  assert.equal(model.calls[0].model, "@cf/myshell-ai/melotts");
-  assert.deepEqual(model.calls[0].values, { prompt: "Bonjour", lang: "fr" });
-  assert.deepEqual(model.calls[0].options, { returnRawResponse: true });
-
-  const unsupported = await handleRequest(request("/api/tts/?text=Hallo&lang=de"), model.env);
-  assert.equal(unsupported.status, 422);
-  assert.equal((await unsupported.json()).error, "speech_language_unavailable");
-  assert.equal(model.calls.length, 1);
-});
-
-test("speech labels a WAV payload by its bytes even when the model says MPEG", async () => {
-  const header = new TextEncoder().encode("RIFFxxxxWAVEdata");
-  const model = ai(() => new Response(header, { headers: { "Content-Type": "audio/mpeg" } }));
-  const response = await handleRequest(request("/api/tts/?text=Hello&lang=en"), model.env);
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("Content-Type"), "audio/wav");
 });

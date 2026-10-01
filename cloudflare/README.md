@@ -1,9 +1,7 @@
-# Cloudflare Worker
+# Translate Worker
 
-This directory contains the `translate` Worker, its Wrangler configuration, a model Container, and tests. It serves the Sync_Pundit interface from `../static/`. When `OPENAI_API_KEY` is set, GPT-5 nano handles text detection and translation. Without the key, Workers AI handles detection and most translation, and AfriSLM handles 17 additional African languages through a Durable Object. Speech uses Workers AI in both cases.
+This directory contains the Worker, provider adapters, Wrangler configuration, and tests. Google Translate's web RPC handles text and detection by default. Google's speech endpoint handles English, French, and Spanish when a user selects **Listen**. `OPENAI_API_KEY` enables GPT-5 nano only for requests that explicitly set `engine=openai`.
 
-Start with the [repository README](../README.md). The detailed docs are organized by task:
+Run `npm ci`, `npm test`, and `npm run check` here. `npm run dev` serves the app locally and makes outbound Google requests for translation and speech. The Google path needs no secret. Use `cloudflare/.env` for an optional local OpenAI key; it is gitignored.
 
-- [Architecture and migration status](../docs/architecture.md)
-- [Local checks and Cloudflare Builds deployment](../docs/deployment.md)
-- [Cloudflare API reference](../docs/api.md)
+Read the [repository README](../README.md), [architecture](../docs/architecture.md), [deployment guide](../docs/deployment.md), and [API reference](../docs/api.md).
