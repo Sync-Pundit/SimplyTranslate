@@ -9,8 +9,8 @@ export const page = `<!doctype html>
   <title>Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.7">
-  <script src="/cloudflare.js?v=20261001.3" defer></script>
+  <link rel="stylesheet" href="/translate.css?v=20261001.8">
+  <script src="/cloudflare.js?v=20261001.4" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#input">Skip to text</a>

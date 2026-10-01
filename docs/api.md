@@ -47,6 +47,8 @@ For example, send `{"text":"Hello","from":"en","to":"fr"}` as JSON to `/api/tran
 
 When `from=auto`, detection examines the first 1,000 characters. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When source and target match, the Worker returns the source text without a translation model call.
 
+Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Other language pairs use M2M100. The API response shape stays the same.
+
 ## Speech
 
 `GET /api/tts/` requires `text` and `lang` query parameters. `lang` accepts English (`en`), French (`fr`), or Spanish (`es`). A successful response contains audio bytes with `Content-Type: audio/wav` or `audio/mpeg`. The Worker chooses the type from the bytes returned by the model.
@@ -64,7 +66,7 @@ English
 en
 ```
 
-`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available. Without the binding it returns HTTP 503 with `ok: false`.
+`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model` and `zulu_english_model`. Without the binding it returns HTTP 503 with `ok: false`.
 
 ## Error codes
 
