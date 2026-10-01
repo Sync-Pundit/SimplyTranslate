@@ -65,6 +65,42 @@ test("automatic source detection chooses a supported language before translation
   assert.equal(model.calls[1].values.source_lang, "fr");
 });
 
+test("detected Zulu uses a glossary for moni without losing the term", async () => {
+  const model = ai((name, values) => values.response_format?.json_schema?.properties?.language
+    ? { response: { language: "zu" } }
+    : { response: { translation: "Come, sinner, come to Jesus" } });
+  const response = await handleRequest(request("/api/translate/?text=Woza%20moni%2C%20woza%20kuJesu&from=auto&to=en"), model.env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    "translated-text": "Come, sinner, come to Jesus", source: "zu", target: "en", engine: "cloudflare",
+  });
+  assert.equal(model.calls.length, 2);
+  assert.equal(model.calls[1].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  assert.match(model.calls[1].values.messages[0].content, /moni = sinner/);
+  assert.equal(model.calls[1].values.messages[1].content, "Woza moni, woza kuJesu");
+});
+
+test("ordinary Zulu to English uses the language model without an unrelated glossary", async () => {
+  const model = ai({ response: { translation: "Hello" } });
+  const response = await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())["translated-text"], "Hello");
+  assert.equal(model.calls[0].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  assert.doesNotMatch(model.calls[0].values.messages[0].content, /moni = sinner/);
+});
+
+test("an empty Zulu translation is not reported as success", async () => {
+  const model = ai({ response: { translation: "" } });
+  const response = await handleRequest(request("/api/translate/?text=Woza%20moni&from=zu&to=en"), model.env);
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).error, "invalid_engine_response");
+
+  const unavailable = await handleRequest(request("/api/translate/?text=Sawubona&from=zu&to=en"), ai(new Error("private")).env);
+  assert.equal(unavailable.status, 503);
+  assert.equal((await unavailable.json()).error, "engine_unavailable");
+});
+
 test("automatic detection refuses unsupported, malformed, and unavailable results", async () => {
   for (const [result, status, error] of [
     [{ response: { language: "und" } }, 422, "language_not_detected"],
@@ -127,7 +163,9 @@ test("health and capabilities report configured features", async () => {
   assert.equal((await bad.json()).ok, false);
   const good = await handleRequest(request("/api/health/"), ai().env);
   assert.equal(good.status, 200);
-  assert.equal((await good.json()).ok, true);
+  const health = await good.json();
+  assert.equal(health.ok, true);
+  assert.equal(health.zulu_english_model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
   const languages = await handleRequest(request("/api/source_languages/"));
   assert.equal(languages.status, 200);
   const body = await languages.text();
