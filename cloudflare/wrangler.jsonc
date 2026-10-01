@@ -5,6 +5,9 @@
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "previews": {},
+  "migrations": [
+    { "tag": "african-translator-v1", "new_sqlite_classes": ["AfricanTranslator"] }
+  ],
   "assets": {
     "directory": "../static",
     "binding": "ASSETS"

@@ -24,7 +24,7 @@ The Google RPC and speech URL are private web interfaces. Their format, access r
 
 The original Quart app remains in `main.py`, with a different API and engine list. The Worker does not implement its `/api/get_languages/` or `/translate/...` routes. Check external consumers before moving a public domain.
 
-The former African model Container, Durable Object, and Workers AI bindings have been removed from the Worker config. There is no deletion migration, so this code does not intentionally delete the old namespace or data. Retiring old Cloudflare resources is an account operation after the new route is live and verified. See [Deployment](deployment.md).
+The former African model Container, Durable Object, and Workers AI bindings have been removed from the Worker config. Cloudflare still requires the deployed `AfricanTranslator` class export, so the Worker retains a non-model compatibility class and its original migration tag. There is no deletion migration, so this code does not intentionally delete the old namespace or data. Retiring old Cloudflare resources is an account operation after the new route is live and verified. See [Deployment](deployment.md).
 
 ## Launch checks
 
