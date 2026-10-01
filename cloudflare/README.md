@@ -22,6 +22,7 @@ For an existing Worker, open **Workers & Pages > your Worker > Settings > Builds
 
 | Setting | Value |
 | --- | --- |
+| Worker | `translate` |
 | Repository | `Sync-Pundit/SimplyTranslate` |
 | Production branch | `master` after this migration branch is merged |
 | Root directory | `/cloudflare/` |
@@ -29,7 +30,7 @@ For an existing Worker, open **Workers & Pages > your Worker > Settings > Builds
 | Deploy command | `npx wrangler deploy` |
 | Preview command, if preview builds are enabled | `npx wrangler preview` |
 
-The Worker in Cloudflare must have the same name as `name` in `cloudflare/wrangler.jsonc`, currently `simplytranslate-preview`. The root directory puts Wrangler beside its lockfile and configuration; its assets setting includes the sibling `static/` directory. The `previews.ai` binding lets branch previews use Workers AI. Cloudflare manages the build credential inside its own integration; no token needs to be stored in GitHub.
+The Worker name matches `name` in `cloudflare/wrangler.jsonc`. The root directory puts Wrangler beside its lockfile and configuration; its assets setting includes the sibling `static/` directory. The `previews.ai` binding lets branch previews use Workers AI. Cloudflare manages the build credential inside its own integration; no token needs to be stored in GitHub.
 
 Connecting the production branch enables deployment on each push to that branch. Keep the public `public domain` route separate until the launch checks below are complete.
 
@@ -53,4 +54,4 @@ Unit tests and a Wrangler dry run pass. A hosted preview returned text for Engli
 - Confirm speech playback in normal browsers. MeloTTS does not cover German, Italian, Portuguese, or Zulu here; decide whether those languages need another speech provider for launch.
 - Add account-level cost and abuse controls before exposing public billable inference.
 - Check existing API consumers and the old `/translate/...` route before switching the domain. The Worker does not implement that route or server-side preferences.
-- Review the production Worker name and route, then deploy after acceptance. This preview has not replaced the existing domain.
+- Review the public route before connecting `public domain`. This preview has not replaced the existing domain.
