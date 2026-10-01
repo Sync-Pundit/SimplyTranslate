@@ -16,16 +16,22 @@ npm run dev
 
 ## Deploy from GitHub
 
-The [Translate Cloudflare workflow](../.github/workflows/translate-cloudflare.yml) runs tests and a Wrangler dry run on pull requests that change `cloudflare/`, `static/`, or the workflow. A manual **Run workflow** action on GitHub repeats those checks and then deploys the Worker named `simplytranslate-preview`. Pushes do not publish it automatically while launch work is still open.
+Use [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) to connect `Sync-Pundit/SimplyTranslate` to the Worker in the Cloudflare dashboard. The GitHub repository does not need a deployment workflow or Cloudflare secrets.
 
-Set these repository Actions secrets before the first manual run:
+For an existing Worker, open **Workers & Pages > your Worker > Settings > Builds > Connect**. Use these build settings:
 
-- `CLOUDFLARE_ACCOUNT_ID`: the account ID for the Sync_Pundit Cloudflare account.
-- `CLOUDFLARE_API_TOKEN`: a token scoped to that account with the **Edit Cloudflare Workers** permission. Keep the token in GitHub Actions secrets, not in the repository.
+| Setting | Value |
+| --- | --- |
+| Repository | `Sync-Pundit/SimplyTranslate` |
+| Production branch | `master` after this migration branch is merged |
+| Root directory | `/cloudflare/` |
+| Build command | `npm ci && npm test && npm run check` |
+| Deploy command | `npx wrangler deploy` |
+| Preview command, if preview builds are enabled | `npx wrangler preview` |
 
-After the workflow is on the repository's default branch, open **Actions > Translate Cloudflare > Run workflow**. Select the branch you want to deploy. The job uses the lockfile in `cloudflare/`, tests the code, checks the deployment bundle, and runs Wrangler from that directory. The Wrangler configuration serves the sibling `static/` directory as assets. Check the job log for the resulting `workers.dev` URL and verify `/api/health/` there.
+The Worker in Cloudflare must have the same name as `name` in `cloudflare/wrangler.jsonc`, currently `simplytranslate-preview`. The root directory puts Wrangler beside its lockfile and configuration; its assets setting includes the sibling `static/` directory. The `previews.ai` binding lets branch previews use Workers AI. Cloudflare manages the build credential inside its own integration; no token needs to be stored in GitHub.
 
-This publishes the preview Worker only. It does not route `translate.syncpundit.io` to the Worker. Review the Worker name, route, launch gaps, and account-level inference controls before connecting the public domain.
+Connecting the production branch enables deployment on each push to that branch. Keep the public `translate.syncpundit.io` route separate until the launch checks below are complete.
 
 ## Current behavior
 
