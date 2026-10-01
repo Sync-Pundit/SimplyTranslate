@@ -16,7 +16,8 @@ const SPEECH_MODEL = "@cf/myshell-ai/melotts";
 const SPEECH_LANGUAGES = new Set(["en", "es", "fr"]);
 const ZULU_ENGLISH_GLOSSARY = [
   { word: /\bmoni\b/i, source: "moni", target: "sinner" },
-  { word: /\bcava\b/i, source: "cava", target: "look or see (township slang, not a person)" },
+  { word: /\bcava\s+wenzani\b/i, source: "cava wenzani?", target: "So, what are you doing? (neutral reading without wider context)" },
+  { word: /\bcava\b/i, source: "cava", target: "so (a Kasi Tali cue when opening a short question)" },
   { word: /\bkanti\b/i, source: "kanti", target: "but or so (discourse marker; keep it in the translation)" },
   { word: /\bwenzani\b/i, source: "wenzani", target: "what are you doing" },
   { word: /\bbafo\b/i, source: "bafo", target: "brother (informal address)" },
@@ -24,7 +25,7 @@ const ZULU_ENGLISH_GLOSSARY = [
   { word: /\bwenkabi\b/i, source: "wenkabi", target: "of the bull" },
   { word: /\bwazini\b/i, source: "wazini", target: "what do you know" },
   { word: /\bngempilo\b/i, source: "ngempilo", target: "about life or health (life when followed by a place)" },
-  { word: /\byaseGoli\b/i, source: "yaseGoli", target: "in Johannesburg" },
+  { word: /\byaseGoli\b/i, source: "yaseGoli", target: "in Goli (keep the colloquial place name Goli)" },
 ];
 const LANGUAGES = Object.freeze({
   en: "English",
