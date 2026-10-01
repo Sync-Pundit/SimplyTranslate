@@ -9,7 +9,7 @@ function request(path, init) {
 
 function googleFrame(translation, source = "en") {
   const entry = [];
-  entry[5] = [[translation]];
+  entry[5] = (Array.isArray(translation) ? translation : [translation]).map((segment) => [segment]);
   const payload = [null, [[entry]], source];
   const outer = [["wrb.fr", "MkEWBc", JSON.stringify(payload), null]];
   const frame = JSON.stringify(outer);
@@ -57,6 +57,20 @@ test("automatic detection uses one Google request and returns its source", async
   assert.equal(calls.length, 1);
   const rpc = JSON.parse(new URLSearchParams(calls[0].options.body).get("f.req"));
   assert.equal(JSON.parse(rpc[0][0][1])[0][1], "auto");
+});
+
+test("Google RPC keeps every translated sentence", async (t) => {
+  mockGoogle(t, ["What are they doing, mjida?", "What are they saying there?"], "zu");
+  const response = await handleRequest(request("/api/translate/?text=Benzani%20ekasi%2C%20mjida%3F%20Bathini%20lapho%3F&from=auto&to=en"));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())["translated-text"], "What are they doing, mjida? What are they saying there?");
+});
+
+test("Chinese RPC segments join without inserted spaces", async (t) => {
+  const calls = mockGoogle(t, ["你好。", "你好吗？"], "en");
+  const response = await handleRequest(request("/api/translate/?text=Hello.%20How%20are%20you%3F&from=en&to=zh"));
+  assert.equal((await response.json())["translated-text"], "你好。你好吗？");
+  assert.equal(calls.length, 1);
 });
 
 test("JSON and multipart clients keep the translation contract", async (t) => {

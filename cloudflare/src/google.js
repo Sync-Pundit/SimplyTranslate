@@ -27,11 +27,13 @@ export async function translateWithGoogle(text, source, target) {
     throw new GoogleResponseError("Google translation returned an invalid payload");
   }
 
-  const translation = payload?.[1]?.[0]?.[0]?.[5]?.[0]?.[0];
+  const segments = payload?.[1]?.[0]?.[0]?.[5];
   const detectedSource = payload?.[2];
-  if (typeof translation !== "string" || !translation.trim() || typeof detectedSource !== "string") {
+  if (!Array.isArray(segments) || !segments.length || segments.some((segment) => typeof segment?.[0] !== "string") || typeof detectedSource !== "string") {
     throw new GoogleResponseError("Google translation returned no usable text");
   }
+  const translation = segments.map((segment) => segment[0]).join(target === "zh" || target === "ja" ? "" : " ");
+  if (!translation.trim()) throw new GoogleResponseError("Google translation returned no usable text");
   return { translation, detectedSource };
 }
 
