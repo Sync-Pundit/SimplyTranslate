@@ -9,6 +9,7 @@ Libre is disabled while its Cloudflare-native implementation is in progress.
 | Read | For |
 | --- | --- |
 | [Architecture](docs/architecture.md) | Worker components, model choices, browser behavior, and launch gaps |
+| [Languages](docs/languages.md) | Supported language choices, international additions, and coverage limits |
 | [Deploy through Cloudflare Builds](docs/deployment.md) | Local checks, GitHub connection settings in Cloudflare, and release checks |
 | [Cloudflare API](docs/api.md) | Current routes, parameters, responses, and errors |
 | [Legacy Quart app](docs/legacy-app.md) | Run and configure the original app during migration |
