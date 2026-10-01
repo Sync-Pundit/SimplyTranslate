@@ -14,6 +14,19 @@ npm run dev
 
 `npm run check` makes a deployment bundle without publishing it. Local `wrangler dev` cannot run the AI binding. Use `npx wrangler dev --remote` for a temporary hosted preview when live inference is needed. That preview sends text to Workers AI and can incur charges.
 
+## Deploy from GitHub
+
+The [Translate Cloudflare workflow](../.github/workflows/translate-cloudflare.yml) runs tests and a Wrangler dry run on pull requests that change `cloudflare/`, `static/`, or the workflow. A manual **Run workflow** action on GitHub repeats those checks and then deploys the Worker named `simplytranslate-preview`. Pushes do not publish it automatically while launch work is still open.
+
+Set these repository Actions secrets before the first manual run:
+
+- `CLOUDFLARE_ACCOUNT_ID`: the account ID for the Sync_Pundit Cloudflare account.
+- `CLOUDFLARE_API_TOKEN`: a token scoped to that account with the **Edit Cloudflare Workers** permission. Keep the token in GitHub Actions secrets, not in the repository.
+
+After the workflow is on the repository's default branch, open **Actions > Translate Cloudflare > Run workflow**. Select the branch you want to deploy. The job uses the lockfile in `cloudflare/`, tests the code, checks the deployment bundle, and runs Wrangler from that directory. The Wrangler configuration serves the sibling `static/` directory as assets. Check the job log for the resulting `workers.dev` URL and verify `/api/health/` there.
+
+This publishes the preview Worker only. It does not route `translate.syncpundit.io` to the Worker. Review the Worker name, route, launch gaps, and account-level inference controls before connecting the public domain.
+
 ## Current behavior
 
 - The text interface supports English, French, German, Italian, Portuguese, Spanish, and Zulu. The Worker runs [M2M100](https://developers.cloudflare.com/workers-ai/models/m2m100-1.2b/) for explicit source and target languages.
