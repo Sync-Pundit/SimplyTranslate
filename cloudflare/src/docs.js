@@ -1,4 +1,4 @@
-export function renderDocsPage(languages) {
+export function renderDocsPage(languages, openAIEnabled = false) {
   const languageItems = Object.entries(languages)
     .map(([code, name]) => `<li><span>${name}</span><code>${code}</code></li>`)
     .join("");
@@ -64,7 +64,7 @@ export function renderDocsPage(languages) {
             <p class="section-index">01 / USE</p>
             <h2>From a thought to another language.</h2>
             <ol class="docs-steps">
-              <li><span>01</span><div><h3>Choose the source.</h3><p>Pick a language, or leave <strong>Detect language</strong> selected. Detection uses the first 1,000 characters and asks you to choose manually if it cannot identify the language.</p></div></li>
+              <li><span>01</span><div><h3>Choose the source.</h3><p>Pick a language, or leave <strong>Detect language</strong> selected. Detection asks you to choose manually if it cannot identify the language.</p></div></li>
               <li><span>02</span><div><h3>Choose the destination.</h3><p>Pick the language you want to read. Use the swap button after detection or translation to reverse the direction.</p></div></li>
               <li><span>03</span><div><h3>Translate.</h3><p>Enter text and select <strong>Translate</strong>. On a keyboard, press Ctrl or Command plus Enter.</p></div></li>
             </ol>
@@ -83,8 +83,8 @@ export function renderDocsPage(languages) {
           <section id="privacy" class="docs-section">
             <p class="section-index">03 / YOUR TEXT</p>
             <h2>Know where the words go.</h2>
-            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>AI or model container</span><span>Result</span></div>
-            <p>The Worker sends your text to Cloudflare Workers AI for detection and most translation, or to a Cloudflare Container for the additional African languages. Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
+            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>Translation provider</span><span>Result</span></div>
+            <p>${openAIEnabled ? "This deployment sends text to OpenAI's GPT-5 nano for detection and translation with response storage disabled." : "This deployment uses Cloudflare Workers AI for detection and most translation, and a Cloudflare Container for some African languages."} Speech uses Workers AI. Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
             <div class="docs-callout"><strong>Shared links include the original text.</strong><p>The text sits in the URL query string. Anyone with the link can read it, and the URL may appear in browser history. Share only text you are comfortable putting in a link.</p></div>
             <p>Speech requests also place the spoken text in a request URL. Select <strong>Listen</strong> only when you want to send that text for speech generation.</p>
           </section>
@@ -93,7 +93,8 @@ export function renderDocsPage(languages) {
             <p class="section-index">04 / MODELS AND SPEECH</p>
             <h2>Different routes for different words.</h2>
             <div class="docs-table-wrap"><table><thead><tr><th>Task</th><th>Model</th><th>Coverage</th></tr></thead><tbody>
-              <tr><td>Source detection</td><td>Llama 3.3</td><td>All listed languages</td></tr>
+              <tr><td>Text, when OpenAI is enabled</td><td>GPT-5 nano</td><td>Detection and translation for all listed languages</td></tr>
+              <tr><td>Source detection, otherwise</td><td>Llama 3.3</td><td>All listed languages</td></tr>
               <tr><td>International translation</td><td>Qwen3</td><td>Pairs with one of the 15 new languages, except when translating into Zulu</td></tr>
               <tr><td>Zulu and Afrikaans</td><td>Llama 3.3</td><td>Zulu to English; translation into Zulu; Afrikaans pairs without a new international language</td></tr>
               <tr><td>Additional African languages</td><td>AfriSLM in a Cloudflare Container</td><td>English to and from 17 additional African languages; other pairs pass through English</td></tr>
@@ -137,7 +138,7 @@ Content-Type: application/json
             <p class="section-index">06 / LIMITS</p>
             <h2>Where to use judgment.</h2>
             <p>Short, ambiguous, and mixed-language text can confuse detection. Translation quality varies by language and sentence. Some specialist-model checks were wrong for Igbo, Luganda, and Wolof. These language choices describe model coverage, not verified accuracy. Native-speaker review remains open, especially for Zulu and regional varieties. Pairs that pass through English can compound errors.</p>
-            <p>Requests involving an additional African language are limited to 1,800 characters. The model container may need time to wake after inactivity.</p>
+            <p>Without OpenAI, requests involving an additional African language are limited to 1,800 characters. The model container may need time to wake after inactivity.</p>
             <p>Libre is disabled while its Cloudflare-native version is being built. Speech currently covers English, French, and Spanish.</p>
             <a class="docs-return" href="/">Open Translate <span aria-hidden="true">↗</span></a>
           </section>

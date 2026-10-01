@@ -1,6 +1,6 @@
 # Translate
 
-Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Cloudflare Worker uses Workers AI for source detection, speech, and most translation. A Cloudflare Container runs a specialist model for 17 additional African languages. The original Quart app remains in the repository during the migration.
+Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Worker uses Workers AI for speech. Text detection and translation can use GPT-5 nano when `OPENAI_API_KEY` is configured; otherwise they use Workers AI and a Cloudflare Container for 17 additional African languages. The original Quart app remains in the repository during the migration.
 
 Libre is disabled while its Cloudflare-native implementation is in progress.
 
@@ -28,6 +28,6 @@ The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold 
 
 ## Upstream and license
 
-The original SimplyTranslate Web project and its instance list are maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). The legacy app can relay third-party translation providers; the Cloudflare Worker uses Workers AI and the model container instead. Provider names and trademarks belong to their owners. This fork is not affiliated with those providers.
+The original SimplyTranslate Web project and its instance list are maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). The legacy app can relay third-party translation providers; the Worker uses the model routes described in [Architecture](docs/architecture.md). Provider names and trademarks belong to their owners. This fork is not affiliated with those providers.
 
 This project is licensed under the [GNU Affero General Public License, version 3 or later](LICENSE).
