@@ -6,7 +6,7 @@ This page describes the routes in `cloudflare/src/index.js`. The [legacy Quart A
 
 The Worker accepts `cloudflare` or an omitted `engine` value. `engine=libre` returns HTTP 503 while Libre is disabled. Other engine values return HTTP 400.
 
-Language values accept a code or name without regard to case: `en` or `English`, for example. Use the language-list routes below to get the current supported codes; [Language coverage](languages.md) explains the international additions. Automatic detection is valid only for the translation source language.
+Language values accept a code or name without regard to case: `en` or `English`, for example. Use the language-list routes below to get the current supported codes; [Language coverage](languages.md) explains the international and African additions. Automatic detection is valid only for the translation source language.
 
 JSON responses include `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Errors use this shape:
 
@@ -50,6 +50,8 @@ When `from=auto`, detection examines the first 1,000 characters. An uncertain or
 
 Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Translation into Zulu and Afrikaans pairs within the original language set use that model too. Pairs involving the 15 international additions use Cloudflare-hosted Qwen3, except when the target is Zulu. The remaining pairs use M2M100. The API response shape stays the same.
 
+Pairs involving one of the 17 additional African languages use AfriSLM in a Cloudflare Container. Pairs without English pass through English. These requests accept at most 1,800 characters and may be slower when the container wakes. Model coverage does not guarantee accuracy; related languages can also confuse automatic detection.
+
 ## Speech
 
 `GET /api/tts/` requires `text` and `lang` query parameters. `lang` accepts English (`en`), French (`fr`), or Spanish (`es`). A successful response contains audio bytes with `Content-Type: audio/wav` or `audio/mpeg`. The Worker chooses the type from the bytes returned by the model.
@@ -67,7 +69,7 @@ English
 en
 ```
 
-`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model`, `zulu_english_model`, and `international_model`. Without the binding it returns HTTP 503 with `ok: false`.
+`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model`, `zulu_english_model`, `international_model`, `african_model`, and `african_model_configured`. The last field confirms a binding, not container readiness. Without the AI binding the route returns HTTP 503 with `ok: false`.
 
 ## Error codes
 
@@ -76,6 +78,7 @@ en
 | 400 | `invalid_request` | Translation request body cannot be read or has an unsupported format |
 | 400 | `invalid_text` | Translation or speech text is empty |
 | 400 | `unsupported_engine` | Engine is neither omitted nor `cloudflare` |
+| 413 | `text_too_long` | More than 1,800 characters with an additional African language |
 | 404 | `not_found` | Path or method has no handler |
 | 422 | `unsupported_language` | Source, target, or speech language is unknown |
 | 422 | `language_not_detected` | Automatic detection did not identify a supported language |

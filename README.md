@@ -1,6 +1,6 @@
 # Translate
 
-Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Cloudflare Worker uses Workers AI for translation, source language detection, and supported speech. The original Quart app remains in the repository during the migration.
+Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Cloudflare Worker uses Workers AI for source detection, speech, and most translation. A Cloudflare Container runs a specialist model for 17 additional African languages. The original Quart app remains in the repository during the migration.
 
 Libre is disabled while its Cloudflare-native implementation is in progress.
 
@@ -11,7 +11,7 @@ The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold 
 | Read | For |
 | --- | --- |
 | [Architecture](docs/architecture.md) | Worker components, model choices, browser behavior, and launch gaps |
-| [Languages](docs/languages.md) | Supported language choices, international additions, and coverage limits |
+| [Languages](docs/languages.md) | Supported choices, African and international additions, and coverage limits |
 | [Deploy through Cloudflare Builds](docs/deployment.md) | Local checks, GitHub connection settings in Cloudflare, and release checks |
 | [Cloudflare API](docs/api.md) | Current routes, parameters, responses, and errors |
 | [Legacy Quart app](docs/legacy-app.md) | Run and configure the original app during migration |
@@ -20,6 +20,7 @@ The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold 
 ## Repository layout
 
 - `cloudflare/src/` contains the Worker and the page it serves.
+- `cloudflare/Dockerfile.african` pins the African translation model used by the Container.
 - `static/` contains the Cloudflare interface assets and files retained for the Quart app.
 - `cloudflare/test/` contains Worker tests.
 - `cloudflare/wrangler.jsonc` names the Worker `translate` and configures its bindings.
@@ -27,6 +28,6 @@ The Worker serves a public guide at `/docs`. The files in [`docs/`](docs/) hold 
 
 ## Upstream and license
 
-The original SimplyTranslate Web project and its instance list are maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). The legacy app can relay third-party translation providers; the Cloudflare Worker uses Workers AI instead. Provider names and trademarks belong to their owners. This fork is not affiliated with those providers.
+The original SimplyTranslate Web project and its instance list are maintained by [Simple Web](https://simple-web.org/projects/simplytranslate.html). The legacy app can relay third-party translation providers; the Cloudflare Worker uses Workers AI and the model container instead. Provider names and trademarks belong to their owners. This fork is not affiliated with those providers.
 
 This project is licensed under the [GNU Affero General Public License, version 3 or later](LICENSE).

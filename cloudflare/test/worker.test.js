@@ -23,6 +23,27 @@ function ai(result = { translated_text: "Bonjour" }) {
   };
 }
 
+function africanAi(result = "Molo") {
+  const model = ai({ response: { translation: "Hello" } });
+  const containerCalls = [];
+  model.env.AFRICAN_TRANSLATOR = {
+    idFromName(name) {
+      assert.equal(name, "shared");
+      return name;
+    },
+    get() {
+      return {
+        async fetch(request) {
+          const body = await request.json();
+          containerCalls.push({ url: request.url, body });
+          return Response.json({ choices: [{ message: { content: result } }] });
+        },
+      };
+    },
+  };
+  return { ...model, containerCalls };
+}
+
 test("form translation uses the Cloudflare model and keeps the legacy text field", async () => {
   const model = ai();
   const response = await handleRequest(request("/api/translate/", {
@@ -192,6 +213,67 @@ test("Afrikaans is listed and uses the language model in either direction", asyn
   assert.match(model.calls[1].values.messages[0].content, /English into natural Afrikaans/);
 });
 
+test("African language choices reach the specialist container", async () => {
+  const added = new Map([
+    ["xh", "Xhosa"], ["st", "Southern Sotho"], ["tn", "Setswana"],
+    ["am", "Amharic"], ["ha", "Hausa"], ["ig", "Igbo"],
+    ["rw", "Kinyarwanda"], ["ln", "Lingala"], ["lg", "Luganda"],
+    ["mg", "Malagasy"], ["ny", "Nyanja"], ["om", "Oromo"],
+    ["sn", "Shona"], ["so", "Somali"], ["sw", "Swahili"],
+    ["wo", "Wolof"], ["yo", "Yoruba"],
+  ]);
+  const sourceList = await (await handleRequest(request("/api/source_languages/"))).text();
+  const targetList = await (await handleRequest(request("/api/target_languages/"))).text();
+  for (const [code, name] of added) {
+    assert.match(sourceList, new RegExp(`\\n${name}\\n${code}\\n`));
+    assert.match(targetList, new RegExp(`\\n${name}\\n${code}\\n`));
+  }
+
+  const model = africanAi("Molo");
+  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())["translated-text"], "Molo");
+  assert.equal(model.containerCalls.length, 1);
+  assert.equal(new URL(model.containerCalls[0].url).pathname, "/v1/chat/completions");
+  assert.match(model.containerCalls[0].body.messages[0].content, /English to Xhosa/);
+  assert.equal(model.calls.length, 0);
+});
+
+test("African to African translation pivots through English", async () => {
+  const model = africanAi("Hello");
+  const response = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=sw"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal(model.containerCalls.length, 2);
+  assert.match(model.containerCalls[0].body.messages[0].content, /Xhosa to English/);
+  assert.match(model.containerCalls[1].body.messages[0].content, /English to Swahili/);
+  assert.match(model.containerCalls[1].body.messages[1].content, /Hello/);
+});
+
+test("African translation fails clearly without a container or with empty model output", async () => {
+  const missing = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), ai().env);
+  assert.equal(missing.status, 503);
+  const empty = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), africanAi("").env);
+  assert.equal(empty.status, 502);
+  const long = await handleRequest(request(`/api/translate/?text=${"a".repeat(1801)}&from=en&to=xh`), africanAi().env);
+  assert.equal(long.status, 413);
+});
+
+test("African translation retries a container that is still starting", async () => {
+  const model = africanAi("Molo");
+  let calls = 0;
+  model.env.AFRICAN_TRANSLATOR.get = () => ({
+    async fetch() {
+      calls++;
+      return calls === 1
+        ? new Response("Container starting", { status: 503 })
+        : Response.json({ choices: [{ finish_reason: "stop", message: { content: "Molo" } }] });
+    },
+  });
+  const response = await handleRequest(request("/api/translate/?text=Hello&from=en&to=xh"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal(calls, 2);
+});
+
 test("an empty Zulu translation is not reported as success", async () => {
   const model = ai({ response: { translation: "" } });
   const response = await handleRequest(request("/api/translate/?text=Woza%20moni&from=zu&to=en"), model.env);
@@ -301,7 +383,7 @@ test("public docs render the current language list and the product limits", asyn
     assert.match(response.headers.get("Content-Security-Policy"), /style-src 'self'/);
     const html = await response.text();
     assert.match(html, /<title>Docs \/ Translate \/ Sync_Pundit<\/title>/);
-    assert.match(html, /23 languages for text/);
+    assert.match(html, /40 languages for text/);
     assert.match(html, /<span>Marathi<\/span><code>mr<\/code>/);
     assert.match(html, /Shared links include the original text/);
     assert.match(html, /POST \/api\/translate\//);

@@ -75,6 +75,7 @@ export function renderDocsPage(languages) {
             <p class="section-index">02 / LANGUAGES</p>
             <h2>${Object.keys(languages).length} languages for text.</h2>
             <p>The source and target menus use the same list. Automatic detection is a source option, not a target language. These codes also work in the API.</p>
+            <p>Seventeen additional African languages use a specialist model alongside Afrikaans and Zulu. The list covers the model's named languages, not every language spoken in Africa. Northern Sotho, Swati, Venda, Tsonga, and South Ndebele remain unavailable. Choose the source yourself when detection confuses related languages.</p>
             <ul class="docs-languages">${languageItems}</ul>
             <p class="docs-small">Malay (<code>ms</code>) does not include Indonesian (<code>id</code>). Chinese and Arabic use broad model codes; regional varieties and writing systems still need review.</p>
           </section>
@@ -82,8 +83,8 @@ export function renderDocsPage(languages) {
           <section id="privacy" class="docs-section">
             <p class="section-index">03 / YOUR TEXT</p>
             <h2>Know where the words go.</h2>
-            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>Workers AI</span><span>Result</span></div>
-            <p>The Worker sends your text to Cloudflare Workers AI for detection or translation. Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
+            <div class="docs-flow" aria-label="Text flow"><span>Browser</span><span>Translate Worker</span><span>AI or model container</span><span>Result</span></div>
+            <p>The Worker sends your text to Cloudflare Workers AI for detection and most translation, or to a Cloudflare Container for the additional African languages. Translate does not keep a server-side translation history. Its API responses ask browsers and intermediaries not to cache them.</p>
             <div class="docs-callout"><strong>Shared links include the original text.</strong><p>The text sits in the URL query string. Anyone with the link can read it, and the URL may appear in browser history. Share only text you are comfortable putting in a link.</p></div>
             <p>Speech requests also place the spoken text in a request URL. Select <strong>Listen</strong> only when you want to send that text for speech generation.</p>
           </section>
@@ -91,10 +92,11 @@ export function renderDocsPage(languages) {
           <section id="models" class="docs-section">
             <p class="section-index">04 / MODELS AND SPEECH</p>
             <h2>Different routes for different words.</h2>
-            <div class="docs-table-wrap"><table><thead><tr><th>Task</th><th>Cloudflare model</th><th>Coverage</th></tr></thead><tbody>
+            <div class="docs-table-wrap"><table><thead><tr><th>Task</th><th>Model</th><th>Coverage</th></tr></thead><tbody>
               <tr><td>Source detection</td><td>Llama 3.3</td><td>All listed languages</td></tr>
               <tr><td>International translation</td><td>Qwen3</td><td>Pairs with one of the 15 new languages, except when translating into Zulu</td></tr>
               <tr><td>Zulu and Afrikaans</td><td>Llama 3.3</td><td>Zulu to English; translation into Zulu; Afrikaans pairs without a new international language</td></tr>
+              <tr><td>Additional African languages</td><td>AfriSLM in a Cloudflare Container</td><td>English to and from 17 additional African languages; other pairs pass through English</td></tr>
               <tr><td>Other translation</td><td>M2M100</td><td>Other pairs from the original language set</td></tr>
               <tr><td>Speech</td><td>MeloTTS</td><td>English, French, and Spanish</td></tr>
             </tbody></table></div>
@@ -134,7 +136,8 @@ Content-Type: application/json
           <section id="limits" class="docs-section">
             <p class="section-index">06 / LIMITS</p>
             <h2>Where to use judgment.</h2>
-            <p>Short, ambiguous, and mixed-language text can confuse detection. Translation quality also varies by language and sentence. The new languages passed short live checks, but native-speaker review remains open, especially for Zulu and regional varieties.</p>
+            <p>Short, ambiguous, and mixed-language text can confuse detection. Translation quality varies by language and sentence. Some specialist-model checks were wrong for Igbo, Luganda, and Wolof. These language choices describe model coverage, not verified accuracy. Native-speaker review remains open, especially for Zulu and regional varieties. Pairs that pass through English can compound errors.</p>
+            <p>Requests involving an additional African language are limited to 1,800 characters. The model container may need time to wake after inactivity.</p>
             <p>Libre is disabled while its Cloudflare-native version is being built. Speech currently covers English, French, and Spanish.</p>
             <a class="docs-return" href="/">Open Translate <span aria-hidden="true">↗</span></a>
           </section>
