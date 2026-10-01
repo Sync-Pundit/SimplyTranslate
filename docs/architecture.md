@@ -10,7 +10,7 @@ Without the OpenAI key, translation uses Cloudflare's M2M100 model for the origi
 
 Without the OpenAI key, the [17 additional African languages](languages.md#african-model-coverage) use a quantized AfriSLM model hosted in a Cloudflare Container. The Worker reaches it through a Durable Object binding. AfriSLM is trained chiefly for English to African translation and back, so pairs without English pass through English. The model is embedded in the image at build time; inference stays in the Cloudflare account. Zulu and Afrikaans retain their existing routes.
 
-The Zulu to English prompt includes a small glossary only when a known term appears in the source. It covers a few colloquial words, music terms, and place names alongside common forms such as `wenzani`. It gives context to the model without replacing the source text. Short phrases can still be ambiguous, especially when a phrase is also a title. Broader Zulu quality needs native-speaker evaluation.
+The Zulu to English prompts include a small glossary only when a known term appears in the source. It covers a few colloquial words, music terms, and place names alongside common forms such as `wenzani`. On the OpenAI route, two or more glossary matches also identify a likely Zulu source before translation. The glossary gives context to the model without replacing the source text. Short phrases can still be ambiguous, especially when a phrase is also a title. Broader Zulu quality needs native-speaker evaluation.
 
 | Function | Model or resource | Current coverage |
 | --- | --- | --- |
