@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "wrangler dev",
-    "check": "wrangler deploy --dry-run"
+    "check": "wrangler deploy --dry-run --containers-rollout=none"
   },
   "devDependencies": {
     "wrangler": "4.145.0"

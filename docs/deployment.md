@@ -13,7 +13,7 @@ npm test
 npm run check
 ```
 
-`npm run check` runs `wrangler deploy --dry-run`. Wrangler builds the Worker bundle and the model image locally, but does not publish them. Docker must be running for this check. For interface work, run `npm run dev`. Local Wrangler development does not run the Workers AI binding in this project. To test live inference, use `npx wrangler dev --remote`; remote requests can incur Workers AI and Container charges. A local Docker build can verify the image separately: `docker build -f Dockerfile.african -t translate-african .` from `cloudflare/`.
+`npm run check` runs `wrangler deploy --dry-run --containers-rollout=none`. It checks the Worker bundle without rebuilding the model image or publishing anything. For interface work, run `npm run dev`. Local Wrangler development does not run the Workers AI binding in this project. To test live inference, use `npx wrangler dev --remote`; remote requests can incur Workers AI and Container charges. To verify the image locally, run `docker build -f Dockerfile.african -t translate-african .` from `cloudflare/` with Docker running.
 
 The African model runs in [Cloudflare Containers](https://developers.cloudflare.com/containers/). The Cloudflare account needs a paid Workers plan with Containers available. The Dockerfile downloads a pinned model by checksum during the image build; the model file is not committed to Git.
 
