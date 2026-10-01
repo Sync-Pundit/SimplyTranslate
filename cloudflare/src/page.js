@@ -9,7 +9,7 @@ export const page = `<!doctype html>
   <title>Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.5">
+  <link rel="stylesheet" href="/translate.css?v=20261001.7">
   <script src="/cloudflare.js?v=20261001.3" defer></script>
 </head>
 <body>
@@ -75,12 +75,19 @@ export const page = `<!doctype html>
 
         <div class="workspace-bottom">
           <div id="translation-status" class="message" role="status" aria-live="polite">Enter text to begin.</div>
+          <div class="share-action">
+            <button id="copy-share" type="button" class="share-button" aria-describedby="share-note" disabled>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L10.8 5"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.1 2.1a5 5 0 0 0 7.1 7.1l1.3-1.3"/></svg>
+              <span>Copy share link</span>
+            </button>
+            <span id="share-note" class="share-note">Includes your original text</span>
+          </div>
           <button class="translate-button" type="submit"><span>Translate</span><span aria-hidden="true">↗</span></button>
         </div>
       </form>
 
-      <div class="under-workspace"><span>Ctrl / ⌘ + Enter to translate</span><button id="copy-share" type="button" class="share-button" disabled>Copy a link to this translation <span aria-hidden="true">↗</span></button><input id="share-url" type="hidden"></div>
-      <p class="share-note">A shared link includes the original text.</p>
+      <div class="under-workspace"><span>Ctrl / ⌘ + Enter to translate</span></div>
+      <input id="share-url" type="hidden">
     </main>
 
     <footer class="site-footer"><span>SYNC_PUNDIT <span class="footer-divider">/</span> TRANSLATE</span><span>Words should be able to travel.</span></footer>
