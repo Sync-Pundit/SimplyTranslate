@@ -1,5 +1,6 @@
 import { page } from "./page.js";
 import { renderDocsPage } from "./docs.js";
+import { OPENAI_MODEL, translateWithOpenAI } from "./openai.js";
 
 const MODEL = "@cf/meta/m2m100-1.2b";
 const LANGUAGE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -252,9 +253,10 @@ async function translate(request, env) {
   if ((!automatic && !source) || !target) {
     return fail("unsupported_language", "Choose a language listed by this preview.", 422);
   }
-  if (!env.AI?.run) return fail("engine_unavailable", "Translation is not configured.", 503);
+  const openAIKey = typeof env.OPENAI_API_KEY === "string" ? env.OPENAI_API_KEY.trim() : "";
+  if (!openAIKey && !env.AI?.run) return fail("engine_unavailable", "Translation is not configured.", 503);
 
-  if (automatic) {
+  if (automatic && !openAIKey) {
     try {
       source = await detectLanguage(input, env.AI);
     } catch {
@@ -272,13 +274,29 @@ async function translate(request, env) {
     return json({ "translated-text": input, source, target, engine: "cloudflare" });
   }
 
-  if ((AFRICAN_LANGUAGES.has(source) || AFRICAN_LANGUAGES.has(target)) && input.length > 1800) {
+  if (!openAIKey && (AFRICAN_LANGUAGES.has(source) || AFRICAN_LANGUAGES.has(target)) && input.length > 1800) {
     return fail("text_too_long", "Translate up to 1,800 characters at a time for these languages.", 413);
   }
 
   let result;
   try {
-    result = await translatePair(input, source, target, env);
+    if (openAIKey) {
+      const openAIResult = await translateWithOpenAI(input, source, target, LANGUAGES, openAIKey);
+      if (automatic) {
+        source = openAIResult?.source;
+        if (source === "und") {
+          return fail("language_not_detected", "Could not identify a supported language. Choose the source language manually.", 422);
+        }
+        if (!CODES.includes(source)) {
+          return fail("invalid_detection_response", "Could not detect the language. Choose it manually and try again.", 502);
+        }
+      } else if (openAIResult?.source !== source) {
+        return fail("invalid_engine_response", "The translation engine returned an unexpected source language.", 502);
+      }
+      result = source === target ? input : openAIResult?.translation;
+    } else {
+      result = await translatePair(input, source, target, env);
+    }
   } catch {
     return fail("engine_unavailable", "Translation is unavailable. Try again later.", 503);
   }
@@ -339,11 +357,13 @@ export async function handleRequest(request, env = {}) {
   }
 
   if ((url.pathname === "/docs" || url.pathname === "/docs/") && request.method === "GET") {
-    return html(renderDocsPage(LANGUAGES));
+    return html(renderDocsPage(LANGUAGES, typeof env.OPENAI_API_KEY === "string" && Boolean(env.OPENAI_API_KEY.trim())));
   }
 
   if (url.pathname === "/api/health/" && request.method === "GET") {
-    return json({ ok: Boolean(env.AI?.run), engine: "cloudflare", model: MODEL, zulu_english_model: LANGUAGE_MODEL, international_model: MULTILINGUAL_MODEL, african_model: AFRICAN_MODEL, african_model_configured: Boolean(env.AFRICAN_TRANSLATOR?.idFromName) }, env.AI?.run ? 200 : 503);
+    const openAIConfigured = typeof env.OPENAI_API_KEY === "string" && Boolean(env.OPENAI_API_KEY.trim());
+    const ok = openAIConfigured || Boolean(env.AI?.run);
+    return json({ ok, engine: "cloudflare", translation_provider: openAIConfigured ? "openai" : "workers-ai", openai_model: openAIConfigured ? OPENAI_MODEL : null, model: MODEL, zulu_english_model: LANGUAGE_MODEL, international_model: MULTILINGUAL_MODEL, african_model: AFRICAN_MODEL, african_model_configured: Boolean(env.AFRICAN_TRANSLATOR?.idFromName) }, ok ? 200 : 503);
   }
 
   if (url.pathname === "/api/capabilities/" && request.method === "GET") {

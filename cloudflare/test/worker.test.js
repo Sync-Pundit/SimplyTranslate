@@ -274,6 +274,67 @@ test("African translation retries a container that is still starting", async () 
   assert.equal(calls, 2);
 });
 
+test("an OpenAI secret routes translation and detection through GPT-5 nano", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push({ url, options });
+    return Response.json({
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "xh", translation: "Hello" }) }] }],
+    });
+  });
+  const response = await handleRequest(request("/api/translate/?text=Molo&from=auto&to=en"), {
+    OPENAI_API_KEY: "test-key",
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    "translated-text": "Hello", source: "xh", target: "en", engine: "cloudflare",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://api.openai.com/v1/responses");
+  assert.equal(calls[0].options.headers.Authorization, "Bearer test-key");
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.model, "gpt-5-nano");
+  assert.equal(body.store, false);
+  assert.equal(body.reasoning.effort, "minimal");
+  assert.equal(body.text.format.type, "json_schema");
+  const health = await (await handleRequest(request("/api/health/"), { OPENAI_API_KEY: "test-key" })).json();
+  assert.equal(health.translation_provider, "openai");
+  assert.equal(health.openai_model, "gpt-5-nano");
+});
+
+test("OpenAI detection errors and provider failures cannot fall through to the container", async (t) => {
+  let output = { source: "und", translation: "" };
+  const providerFetch = t.mock.method(globalThis, "fetch", async () => Response.json({
+    status: "completed",
+    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(output) }] }],
+  }));
+  const env = { OPENAI_API_KEY: "test-key" };
+  const unknown = await handleRequest(request("/api/translate/?text=Hi&from=auto&to=en"), env);
+  assert.equal(unknown.status, 422);
+  assert.equal((await unknown.json()).error, "language_not_detected");
+  output = { source: "xh", translation: "" };
+  const empty = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=en"), env);
+  assert.equal(empty.status, 502);
+  assert.equal((await empty.json()).error, "invalid_engine_response");
+  providerFetch.mock.mockImplementation(async () => new Response("private provider error", { status: 401 }));
+  const unavailable = await handleRequest(request("/api/translate/?text=Molo&from=xh&to=en"), env);
+  assert.equal(unavailable.status, 503);
+  const body = await unavailable.text();
+  assert.equal(JSON.parse(body).error, "engine_unavailable");
+  assert.doesNotMatch(body, /private provider error|test-key/);
+});
+
+test("OpenAI detection preserves source text when the detected language is the target", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({
+    status: "completed",
+    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "en", translation: "Hi" }) }] }],
+  }));
+  const response = await handleRequest(request("/api/translate/?text=Hello&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())["translated-text"], "Hello");
+});
+
 test("an empty Zulu translation is not reported as success", async () => {
   const model = ai({ response: { translation: "" } });
   const response = await handleRequest(request("/api/translate/?text=Woza%20moni&from=zu&to=en"), model.env);
@@ -390,6 +451,9 @@ test("public docs render the current language list and the product limits", asyn
     assert.match(html, /href="\/docs" aria-current="page"/);
     assert.doesNotMatch(html, /workers\.dev|translate\.syncpundit\.io/);
   }
+  const openAIDocs = await (await handleRequest(request("/docs"), { OPENAI_API_KEY: "test-key" })).text();
+  assert.match(openAIDocs, /This deployment sends text to OpenAI/);
+  assert.doesNotMatch(openAIDocs, /This deployment uses Cloudflare Workers AI for detection/);
 });
 
 test("speech uses Cloudflare audio and rejects unsupported languages before inference", async () => {

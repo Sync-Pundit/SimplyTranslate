@@ -11,3 +11,8 @@ output/
 # Cloudflare local tooling
 cloudflare/node_modules/
 cloudflare/.wrangler/
+.wrangler/
+**/.env
+**/.env.*
+!**/.env.example
+**/.dev.vars*

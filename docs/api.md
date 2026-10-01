@@ -20,7 +20,7 @@ JSON responses include `Content-Type: application/json; charset=utf-8` and `Cach
 | --- | --- | --- |
 | `GET` | `/` | Translate HTML page |
 | `GET` | `/docs`, `/docs/` | Public guide with the current language list |
-| `GET` | `/api/health/` | AI binding status and translation model |
+| `GET` | `/api/health/` | Translation provider, model names, and binding status |
 | `GET` | `/api/capabilities/` | Detection support flag and speech language codes |
 | `GET` | `/api/source_languages/` | Plain-text language name and code pairs, including `auto` |
 | `GET` | `/api/target_languages/` | Plain-text language name and code pairs, excluding `auto` |
@@ -46,11 +46,11 @@ For example, send `{"text":"Hello","from":"en","to":"fr"}` as JSON to `/api/tran
 {"translated-text":"Bonjour","source":"en","target":"fr","engine":"cloudflare"}
 ```
 
-When `from=auto`, detection examines the first 1,000 characters. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When source and target match, the Worker returns the source text without a translation model call.
+When `from=auto`, detection examines the first 1,000 characters on the Workers AI route; the OpenAI route sends the full text for detection and translation. An uncertain or unsupported language produces an error that asks the caller to choose a source language. When a selected source and target match, the Worker returns the source text without a translation model call.
 
-Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Translation into Zulu and Afrikaans pairs within the original language set use that model too. Pairs involving the 15 international additions use Cloudflare-hosted Qwen3, except when the target is Zulu. The remaining pairs use M2M100. The API response shape stays the same.
+With `OPENAI_API_KEY` configured, GPT-5 nano handles detection and translation for all listed languages. Without the key, Zulu to English uses a Cloudflare-hosted language model, with a glossary hint when the source contains a known term. Translation into Zulu and Afrikaans pairs within the original language set use that model too. Pairs involving the 15 international additions use Cloudflare-hosted Qwen3, except when the target is Zulu. The remaining pairs use M2M100. The API response shape stays the same.
 
-Pairs involving one of the 17 additional African languages use AfriSLM in a Cloudflare Container. Pairs without English pass through English. These requests accept at most 1,800 characters and may be slower when the container wakes. Model coverage does not guarantee accuracy; related languages can also confuse automatic detection.
+Without the OpenAI key, pairs involving one of the 17 additional African languages use AfriSLM in a Cloudflare Container. Pairs without English pass through English. These requests accept at most 1,800 characters and may be slower when the container wakes. Model coverage does not guarantee accuracy; related languages can also confuse automatic detection.
 
 ## Speech
 
@@ -69,7 +69,7 @@ English
 en
 ```
 
-`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether the AI binding is working. `GET /api/health/` returns HTTP 200 with `ok: true` when the AI binding is available, and includes `model`, `zulu_english_model`, `international_model`, `african_model`, and `african_model_configured`. The last field confirms a binding, not container readiness. Without the AI binding the route returns HTTP 503 with `ok: false`.
+`GET /api/capabilities/` currently returns `automatic_source_detection: true` and `speech_languages: ["en", "es", "fr"]`. This reports supported features, not whether a provider is working. `GET /api/health/` reports `translation_provider` (`openai` or `workers-ai`) and `openai_model` when the key is set. It also includes `model`, `zulu_english_model`, `international_model`, `african_model`, and `african_model_configured`. The last field confirms a binding, not container readiness. HTTP 200 means a provider is configured, not that an external model call has succeeded. Without either the AI binding or OpenAI key, the route returns HTTP 503 with `ok: false`.
 
 ## Error codes
 
@@ -78,7 +78,7 @@ en
 | 400 | `invalid_request` | Translation request body cannot be read or has an unsupported format |
 | 400 | `invalid_text` | Translation or speech text is empty |
 | 400 | `unsupported_engine` | Engine is neither omitted nor `cloudflare` |
-| 413 | `text_too_long` | More than 1,800 characters with an additional African language |
+| 413 | `text_too_long` | More than 1,800 characters with an additional African language on the Cloudflare route |
 | 404 | `not_found` | Path or method has no handler |
 | 422 | `unsupported_language` | Source, target, or speech language is unknown |
 | 422 | `language_not_detected` | Automatic detection did not identify a supported language |
