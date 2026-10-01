@@ -21,12 +21,22 @@ const ZULU_ENGLISH_GLOSSARY = [
   { word: /\bkanti\b/i, source: "kanti", target: "but or so (discourse marker; keep it in the translation)" },
   { word: /\bwenzani\b/i, source: "wenzani", target: "what are you doing" },
   { word: /\bbafo\b/i, source: "bafo", target: "brother (informal address)" },
-  { word: /\bushuni\b/i, source: "ushuni", target: "tune or song (music slang)" },
-  { word: /\bwenkabi\b/i, source: "wenkabi", target: "of the bull" },
+  { word: /\bushuni\s+wenkabi\b/i, source: "ushuni wenkabi", target: "the hitman's style (colloquial phrase; do not render it as the hitman's tune)" },
+  { word: /\bushuni\b/i, source: "ushuni", target: "a tune; also a style, rhythm, or vibe in context" },
+  { word: /\bwenkabi\b/i, source: "wenkabi", target: "of the ox literally; of the hitman in slang" },
   { word: /\bwazini\b/i, source: "wazini", target: "what do you know" },
   { word: /\bngempilo\b/i, source: "ngempilo", target: "about life or health (life when followed by a place)" },
   { word: /\byaseGoli\b/i, source: "yaseGoli", target: "in Goli (keep the colloquial place name Goli)" },
 ];
+const HITMAN_STYLE_PHRASE = /\bushuni\s+wenkabi\b/i;
+
+function zuluHints(text) {
+  const matches = ZULU_ENGLISH_GLOSSARY.filter(({ word }) => word.test(text));
+  return HITMAN_STYLE_PHRASE.test(text)
+    ? matches.filter(({ source }) => source !== "ushuni" && source !== "wenkabi")
+    : matches;
+}
+
 const LANGUAGES = Object.freeze({
   en: "English",
   af: "Afrikaans",
@@ -133,7 +143,7 @@ async function detectLanguage(text, ai) {
 
 async function translateWithLanguageModel(text, source, target, ai, model = LANGUAGE_MODEL) {
   const glossary = source === "zu" && target === "en"
-    ? ZULU_ENGLISH_GLOSSARY.filter(({ word }) => word.test(text))
+    ? zuluHints(text)
     : [];
   const glossaryInstruction = glossary.length
     ? ` Use this glossary when relevant: ${glossary.map(({ source, target }) => `${source} = ${target}`).join("; ")}.`
@@ -282,9 +292,9 @@ async function translate(request, env) {
   let result;
   try {
     if (openAIKey) {
-      const zuluHints = ZULU_ENGLISH_GLOSSARY.filter(({ word }) => word.test(input));
-      const modelSource = automatic && zuluHints.length >= 2 ? "zu" : source;
-      const hints = target === "en" && (modelSource === "zu" || automatic) ? zuluHints : [];
+      const matches = zuluHints(input);
+      const modelSource = automatic && (matches.length >= 2 || HITMAN_STYLE_PHRASE.test(input)) ? "zu" : source;
+      const hints = target === "en" && (modelSource === "zu" || automatic) ? matches : [];
       const openAIResult = await translateWithOpenAI(input, modelSource, target, LANGUAGES, openAIKey, hints);
       if (automatic) {
         source = openAIResult?.source;

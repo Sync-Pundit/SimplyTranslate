@@ -173,7 +173,7 @@ test("Zulu question keeps its person and form of address in the language-model r
 test("Zulu slang and city-life terms reach the model with local context", async () => {
   const examples = [
     ["cava wenzani?", ["cava = so (a Kasi Tali cue", "wenzani = what are you doing"]],
-    ["ushuni wenkabi", ["ushuni = tune or song", "wenkabi = of the bull"]],
+    ["ushuni wenkabi", ["ushuni wenkabi = the hitman's style"]],
     ["wazini ngempilo yaseGoli wena?", ["wazini = what do you know", "ngempilo = about life", "yaseGoli = in Goli"]],
   ];
 
@@ -188,6 +188,7 @@ test("Zulu slang and city-life terms reach the model with local context", async 
     assert.equal(model.calls.length, 1);
     const prompt = model.calls[0].values.messages[0].content;
     for (const term of terms) assert.ok(prompt.includes(term), `${text}: missing ${term}`);
+    if (text === "ushuni wenkabi") assert.doesNotMatch(prompt, /(?:relevant:|;)\s*(?:ushuni|wenkabi) =/);
     assert.match(prompt, /Preserve conjunctions and discourse markers/);
     assert.match(prompt, /sentence-final emphatic wena/);
     assert.equal(model.calls[0].values.messages[1].content, text);
@@ -335,6 +336,22 @@ test("OpenAI keeps Goli and the Zulu final emphasis in translation context", asy
   assert.equal(response.status, 200);
   assert.match(instructions, /keep the colloquial place name Goli/);
   assert.match(instructions, /do not append a separate ', you'/);
+});
+
+test("OpenAI treats ushuni wenkabi as a colloquial phrase", async (t) => {
+  let instructions;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    instructions = JSON.parse(options.body).instructions;
+    return Response.json({
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ source: "zu", translation: "The hitman's style" }) }] }],
+    });
+  });
+  const response = await handleRequest(request("/api/translate/?text=ushuni%20wenkabi&from=auto&to=en"), { OPENAI_API_KEY: "test-key" });
+  assert.equal(response.status, 200);
+  assert.match(instructions, /The source language is Zulu \(zu\)/);
+  assert.match(instructions, /ushuni wenkabi = the hitman's style/);
+  assert.doesNotMatch(instructions, /ushuni = a tune|wenkabi = of the ox/);
 });
 
 test("OpenAI cannot relabel a source inferred from known Zulu phrases", async (t) => {
