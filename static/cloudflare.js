@@ -5,6 +5,7 @@
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const status = document.getElementById("translation-status");
+  const detectedLanguage = document.getElementById("detected-language");
   const submit = form.querySelector(".translate-button");
   const clear = document.getElementById("clear-input");
   const copyResult = document.getElementById("copy-result");
@@ -39,6 +40,9 @@
   function updateLabels() {
     document.getElementById("from-label").textContent = source.value === "auto" ? (detectedSource?.toUpperCase() || "AUTO") : source.value.toUpperCase();
     document.getElementById("to-label").textContent = target.value.toUpperCase() || "—";
+    const detectedName = [...source.options].find((choice) => choice.value === detectedSource)?.textContent;
+    detectedLanguage.textContent = source.value === "auto" && detectedName ? `${detectedName} detected` : "";
+    detectedLanguage.hidden = !detectedLanguage.textContent;
   }
 
   function updateSpeechActions() {
@@ -151,8 +155,7 @@
       resultNote.textContent = "Translation ready";
       copyResult.disabled = false;
       updateSpeechActions();
-      const detectedName = [...source.options].find((choice) => choice.value === result.source)?.textContent || result.source.toUpperCase();
-      setStatus(source.value === "auto" ? `Detected ${detectedName}. Translation ready.` : "Translation ready.", "success");
+      setStatus("Translation ready.", "success");
 
       const link = new URL("/", location.origin);
       link.searchParams.set("sl", source.value);

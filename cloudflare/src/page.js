@@ -9,8 +9,8 @@ export const page = `<!doctype html>
   <title>Translate / Sync_Pundit</title>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
-  <link rel="stylesheet" href="/translate.css?v=20261001.8">
-  <script src="/cloudflare.js?v=20261001.4" defer></script>
+  <link rel="stylesheet" href="/translate.css?v=20261001.9">
+  <script src="/cloudflare.js?v=20261001.5" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#input">Skip to text</a>
@@ -45,9 +45,10 @@ export const page = `<!doctype html>
       <form id="translation-form" class="workspace" novalidate>
         <div class="workspace-topline"><span>01 / TEXT</span><span>CLOUDFLARE AI</span></div>
         <div class="language-strip">
-          <div class="language-control">
+          <div class="language-control language-control-source">
             <label for="from_language">From</label>
-            <select name="from_language" id="from_language"><option value="">Loading languages</option></select>
+            <select name="from_language" id="from_language" aria-describedby="detected-language"><option value="">Loading languages</option></select>
+            <span id="detected-language" class="detected-language" aria-live="polite" hidden></span>
           </div>
           <button id="switchbutton" class="swap-button" aria-label="Swap languages" type="button" title="Swap languages">
             <svg viewBox="0 0 28 28" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" aria-hidden="true"><path d="M4 10h18m-5-5 5 5-5 5M24 18H6m5-5-5 5 5 5"/></svg>

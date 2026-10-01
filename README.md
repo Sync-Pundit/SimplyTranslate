@@ -2,7 +2,7 @@
 
 Translate is Sync_Pundit's Cloudflare-native translation app. This repository is a fork of [SimplyTranslate Web](https://codeberg.org/SimpleWeb/SimplyTranslate-Web). The Cloudflare Worker uses Workers AI for translation, source language detection, and supported speech. The original Quart app remains in the repository during the migration.
 
-The Worker is a preview. Libre is disabled, and `public domain` has not been connected to it.
+Libre is disabled while its Cloudflare-native implementation is in progress.
 
 ## Documentation
 

@@ -90,6 +90,30 @@ test("ordinary Zulu to English uses the language model without an unrelated glos
   assert.doesNotMatch(model.calls[0].values.messages[0].content, /moni = sinner/);
 });
 
+test("Zulu question keeps its person and form of address in the language-model request", async () => {
+  const model = ai({ response: { translation: "But what are you doing there, brother?" } });
+  const response = await handleRequest(request("/api/translate/?text=Kanti%20wenzani%20lapho%20bafo%3F&from=zu&to=en"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json())["translated-text"], "But what are you doing there, brother?");
+  assert.match(model.calls[0].values.messages[0].content, /wenzani = what are you doing/);
+  assert.match(model.calls[0].values.messages[0].content, /bafo = brother \(informal address\)/);
+});
+
+test("Afrikaans is listed and uses the language model in either direction", async () => {
+  const model = ai({ response: { translation: "Good morning" } });
+  const response = await handleRequest(request("/api/translate/?text=Goeiem%C3%B4re&from=af&to=en"), model.env);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).source, "af");
+  assert.equal(model.calls[0].model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+  assert.match(model.calls[0].values.messages[0].content, /Afrikaans into natural English/);
+
+  const list = await handleRequest(request("/api/source_languages/"), model.env);
+  assert.match(await list.text(), /Afrikaans\naf\n/);
+  const reverse = await handleRequest(request("/api/translate/?text=Good%20morning&from=en&to=af"), model.env);
+  assert.equal(reverse.status, 200);
+  assert.match(model.calls[1].values.messages[0].content, /English into natural Afrikaans/);
+});
+
 test("an empty Zulu translation is not reported as success", async () => {
   const model = ai({ response: { translation: "" } });
   const response = await handleRequest(request("/api/translate/?text=Woza%20moni&from=zu&to=en"), model.env);
@@ -186,6 +210,7 @@ test("homepage is a same-origin browser flow with the new design", async () => {
   assert.match(html, /cloudflare.js/);
   assert.match(html, /Sync_Pundit/);
   assert.match(html, /translate.css/);
+  assert.match(html, /id="detected-language"/);
 });
 
 test("speech uses Cloudflare audio and rejects unsupported languages before inference", async () => {
