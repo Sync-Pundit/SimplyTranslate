@@ -8,7 +8,7 @@ The browser sends text to `/api/translate/`. A selected source language goes str
 
 Translation uses Cloudflare's M2M100 model for the original language pairs. Zulu to English, translation into Zulu, and Afrikaans pairs within the original language set use the Cloudflare-hosted Llama model. The [15 international additions](languages.md) use Cloudflare-hosted Qwen3 for other directions after short live comparisons exposed errors from M2M100 and Llama. If the source and target languages match, the Worker returns the input without a model call. The browser sends text to `/api/tts/` only when a user selects **Listen**. Speech uses MeloTTS and is available for English, French, and Spanish.
 
-The Zulu to English prompt includes a small glossary only when a known term appears in the source. The entries cover `moni` as “sinner,” `wenzani` as “what are you doing,” and `bafo` as an informal form of address. Broader Zulu quality still needs evaluation.
+The Zulu to English prompt includes a small glossary only when a known term appears in the source. It covers a few colloquial words, music terms, and place names alongside common forms such as `wenzani`. It gives context to the model without replacing the source text. Short phrases can still be ambiguous, especially when a phrase is also a title. Broader Zulu quality needs native-speaker evaluation.
 
 | Function | Model or resource | Current coverage |
 | --- | --- | --- |
