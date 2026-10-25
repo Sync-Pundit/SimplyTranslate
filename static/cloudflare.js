@@ -26,10 +26,17 @@
   let providerSource;
   let audio;
   let speechLanguages = new Set();
+  let composingInput = false;
 
   function setStatus(message, kind = "") {
     status.textContent = message;
     status.className = `message${kind ? ` is-${kind}` : ""}`;
+    publishState();
+  }
+
+  function publishState() {
+    form.setAttribute("aria-busy", String(Boolean(currentRequest && !currentRequest.signal.aborted)));
+    document.dispatchEvent(new CustomEvent("translate:state"));
   }
 
   function updateCount() {
@@ -48,6 +55,7 @@
     detectedLanguage.title = mismatch ? `Google interpreted this as ${providerName}. Check the translation.` : "";
     detectedLanguage.classList.toggle("is-warning", Boolean(mismatch));
     detectedLanguage.hidden = !detectedLanguage.textContent;
+    publishState();
   }
 
   function updateSpeechActions() {
@@ -177,6 +185,7 @@
         currentRequest = undefined;
         submit.disabled = false;
         submit.firstElementChild.textContent = "Translate";
+        publishState();
       }
     }
   }
@@ -193,13 +202,17 @@
       setStatus(button === copyShare
         ? "Could not copy the link. Check clipboard access and try again."
         : "Could not copy. Select the translation and copy it manually.", "error");
+      document.dispatchEvent(new CustomEvent("translate:copy-failed", {detail:{kind:button===copyShare?"link":"result"}}));
     }
   }
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (composingInput) return;
     translate();
   });
+  input.addEventListener("compositionstart", () => { composingInput = true; });
+  input.addEventListener("compositionend", () => { composingInput = false; });
   input.addEventListener("input", () => {
     clearResult();
     updateCount();
@@ -207,7 +220,7 @@
     setStatus(input.value.trim() ? "Ready to translate." : "Enter text to begin.");
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    if (!event.isComposing && !composingInput && event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       form.requestSubmit();
     }

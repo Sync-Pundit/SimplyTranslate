@@ -1,0 +1,46 @@
+{
+  "engine": "Chromium emulation",
+  "groups": [
+    {
+      "name": "Phone layouts retain the writing area and touch controls in both themes",
+      "status": "passed"
+    },
+    {
+      "name": "Language sheets search real choices, preserve focus and remember only language codes",
+      "status": "passed"
+    },
+    {
+      "name": "Translation, copying, native sharing and detected-language swap use the existing API",
+      "status": "passed"
+    },
+    {
+      "name": "Keyboard space changes after a real viewport resize and retains drafts on dismissal",
+      "status": "passed"
+    },
+    {
+      "name": "Late responses and upstream failures never replace an edited draft with stale results",
+      "status": "passed"
+    },
+    {
+      "name": "Paste, share and clipboard-denial fallbacks remain actionable",
+      "status": "passed"
+    },
+    {
+      "name": "A shared link initializes the mobile result and resizing restores the full desktop workspace",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "Physical Firefox/WebKit, native keyboard animation, clipboard prompts and native share/audio need phone checks."
+  ],
+  "layout_combinations": 14,
+  "verified_at": "2026-10-25T16:19:35.611776+00:00",
+  "api_tests_passed": 20,
+  "wrangler_dry_run": "passed",
+  "ime_followup": [
+    {
+      "name": "Keyboard space changes after a real viewport resize and retains drafts on dismissal",
+      "status": "passed"
+    }
+  ]
+}
