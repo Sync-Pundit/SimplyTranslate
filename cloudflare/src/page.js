@@ -10,7 +10,9 @@ export const page = `<!doctype html>
   <link rel="icon" href="/translate-mark.svg?v=20261001.3" type="image/svg+xml">
   <script src="/theme.js?v=20261001.1"></script>
   <link rel="stylesheet" href="/translate.css?v=20261002.1">
-  <script src="/cloudflare.js?v=20261002.1" defer></script>
+  <link rel="stylesheet" href="/mobile.css?v=20261025.1">
+  <script src="/cloudflare.js?v=20261025.1" defer></script>
+  <script src="/mobile.js?v=20261025.1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#input">Skip to text</a>
@@ -84,7 +86,7 @@ export const page = `<!doctype html>
             </button>
             <span id="share-note" class="share-note">Includes your original text</span>
           </div>
-          <button class="translate-button" type="submit"><span>Translate</span><span aria-hidden="true">↗</span></button>
+          <button class="translate-button" type="submit"><span>Translate</span><span aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 19 19 5M5 5h14v14"/></svg></span></button>
         </div>
       </form>
 
